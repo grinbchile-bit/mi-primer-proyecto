@@ -3,6 +3,9 @@ import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout title="Red de Servicios y Turismo Rural">
+	<!-- Hojas de estilo de Leaflet para el mapa -->
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
 	<div class="app-container">
 		<!-- Panel Lateral de Servicios -->
 		<aside class="sidebar">
@@ -12,42 +15,41 @@ import Layout from '../layouts/Layout.astro';
 			</header>
 
 			<div class="search-box">
-				<input type="text" placeholder="¿Qué servicio o habilidad buscas? (ej. Carpintero, Miel, Guía)..." />
+				<input type="text" id="searchInput" placeholder="¿Qué servicio buscas? (ej. Carpintero, Miel)..." />
 			</div>
 
 			<div class="categories">
-				<button class="chip active">All</button>
+				<button class="chip active">Todos</button>
 				<button class="chip">🪚 Oficios</button>
 				<button class="chip">🍯 Productos</button>
 				<button class="chip">🥾 Turismo</button>
-				<button class="chip">🛻 Fletes</button>
 			</div>
 
 			<div class="services-list">
-				<div class="card">
+				<div class="card" onclick="centerMap(-41.4717, -72.9365, 'Don Pedro - Carpintería')">
 					<span class="icon">🪚</span>
 					<div class="info">
-						<h3>Don Pedro - Carpintería y Arreglos</h3>
+						<h3>Don Pedro - Carpintería</h3>
 						<p>Trabajos en madera, cercos y estructuras.</p>
-						<span class="distance">📍 a 2.5 km • Sector Cruce Los Arrayanes</span>
+						<span class="distance">📍 Sector Cruce Los Arrayanes</span>
 					</div>
 				</div>
 
-				<div class="card">
+				<div class="card" onclick="centerMap(-41.4800, -72.9500, 'Apicultura El Roble')">
 					<span class="icon">🍯</span>
 					<div class="info">
 						<h3>Apicultura El Roble</h3>
 						<p>Venta de miel pura de ulmo y polen fresco.</p>
-						<span class="distance">📍 a 4.1 km • Parcela 12</span>
+						<span class="distance">📍 Parcela 12</span>
 					</div>
 				</div>
 
-				<div class="card">
+				<div class="card" onclick="centerMap(-41.4600, -72.9200, 'Senderos y Guiado Local')">
 					<span class="icon">🥾</span>
 					<div class="info">
 						<h3>Senderos y Guiado Local</h3>
-						<p>Rutas de trekking por el bosque nativo y miradores.</p>
-						<span class="distance">📍 a 6.0 km • Río San Pedro</span>
+						<p>Rutas de trekking por el bosque nativo.</p>
+						<span class="distance">📍 Río San Pedro</span>
 					</div>
 				</div>
 			</div>
@@ -57,20 +59,51 @@ import Layout from '../layouts/Layout.astro';
 
 		<!-- Área Principal del Mapa -->
 		<main class="map-container">
-			<div class="map-placeholder">
-				<div class="map-notice">
-					<h2>🗺️ Mapa Interactivo de la Zona</h2>
-					<p>Aquí se cargará el mapa en tiempo real con los íconos de los vecinos cercanos.</p>
-				</div>
-			</div>
+			<div id="map"></div>
 		</main>
 	</div>
 </Layout>
 
+<!-- Scripts para inicializar Leaflet.js -->
+<script is:inline src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script is:inline>
+	// Coordenadas iniciales (Centro de la zona rural de prueba)
+	const initialLat = -41.4717;
+	const initialLng = -72.9365;
+
+	// Inicializar el mapa
+	const map = L.map('map').setView([initialLat, initialLng], 12);
+
+	// Capa del mapa estandar desde OpenStreetMap (Ligera para conexiones 3G/4G)
+	L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		maxZoom: 18,
+		attribution: '© OpenStreetMap'
+	}).addTo(map);
+
+	// Marcadores de prueba
+	const providers = [
+		{ lat: -41.4717, lng: -72.9365, title: "🪚 Don Pedro - Carpintería", desc: "Especialista en madera y cercos" },
+		{ lat: -41.4800, lng: -72.9500, title: "🍯 Apicultura El Roble", desc: "Miel pura y polen" },
+		{ lat: -41.4600, lng: -72.9200, title: "🥾 Senderos y Guiado Local", desc: "Trekking y miradores" }
+	];
+
+	// Agregar pines al mapa
+	providers.forEach(p => {
+		L.marker([p.lat, p.lng])
+			.addTo(map)
+			.bindPopup(`<b>${p.title}</b><br>${p.desc}`);
+	});
+
+	// Función para centrar el mapa al hacer clic en una tarjeta de la lista
+	window.centerMap = function(lat, lng, title) {
+		map.flyTo([lat, lng], 15, { duration: 1.5 });
+	};
+</script>
+
 <style>
 	:global(body) {
 		margin: 0;
-		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 		background-color: #f3f4f6;
 	}
 
@@ -90,7 +123,7 @@ import Layout from '../layouts/Layout.astro';
 		padding: 1.5rem;
 		box-sizing: border-box;
 		gap: 1.2rem;
-		z-index: 10;
+		z-index: 1000;
 		box-shadow: 2px 0 10px rgba(0,0,0,0.05);
 	}
 
@@ -150,16 +183,17 @@ import Layout from '../layouts/Layout.astro';
 		display: flex;
 		gap: 1rem;
 		padding: 1rem;
-		border: 1px solid #f3f4f6;
+		border: 1px solid #e5e7eb;
 		border-radius: 10px;
 		background-color: #fafafa;
 		cursor: pointer;
-		transition: background 0.2s;
+		transition: all 0.2s ease;
 	}
 
 	.card:hover {
 		background-color: #f0fdf4;
 		border-color: #bbf7d0;
+		transform: translateY(-2px);
 	}
 
 	.card .icon {
@@ -196,24 +230,25 @@ import Layout from '../layouts/Layout.astro';
 
 	.map-container {
 		flex: 1;
-		background-color: #e5e7eb;
+		height: 100%;
 		position: relative;
 	}
 
-	.map-placeholder {
+	#map {
 		width: 100%;
 		height: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: #cbd5e1;
 	}
 
-	.map-notice {
-		background: white;
-		padding: 2rem;
-		border-radius: 12px;
-		text-align: center;
-		box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+	@media (max-width: 768px) {
+		.app-container {
+			flex-direction: column-reverse;
+		}
+		.sidebar {
+			width: 100%;
+			height: 50vh;
+		}
+		.map-container {
+			height: 50vh;
+		}
 	}
 </style>
