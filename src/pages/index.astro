@@ -94,30 +94,15 @@ if (error) {
       if (service.lat && service.lng) {
         L.marker([service.lat, service.lng])
           .addTo(map)
-          .bindPopup(`<b>${service.title}</b><br>${service.description || ''}`);
+          .bindPopup(`<b>${service.title}</b><br>${service.description || ''}<br><b>Tel:</b> ${service.phone || 'N/A'}`);
       }
     });
   }
-</script>
 
-	// Marcadores de prueba
-	const providers = [
-		{ lat: -41.4717, lng: -72.9365, title: "🪚 Don Pedro - Carpintería", desc: "Especialista en madera y cercos" },
-		{ lat: -41.4800, lng: -72.9500, title: "🍯 Apicultura El Roble", desc: "Miel pura y polen" },
-		{ lat: -41.4600, lng: -72.9200, title: "🥾 Senderos y Guiado Local", desc: "Trekking y miradores" }
-	];
-
-	// Agregar pines al mapa
-	providers.forEach(p => {
-		L.marker([p.lat, p.lng])
-			.addTo(map)
-			.bindPopup(`<b>${p.title}</b><br>${p.desc}`);
-	});
-
-	// Función para centrar el mapa al hacer clic en una tarjeta de la lista
-	window.centerMap = function(lat, lng, title) {
-		map.flyTo([lat, lng], 15, { duration: 1.5 });
-	};
+  // Función para centrar el mapa al hacer clic en una tarjeta de la lista
+  window.centerMap = function(lat, lng, title) {
+    map.flyTo([lat, lng], 15, { duration: 1.5 });
+  };
 </script>
 
 <style>
