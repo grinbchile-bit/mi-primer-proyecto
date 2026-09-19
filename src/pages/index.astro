@@ -1,11 +1,219 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="Red de Servicios y Turismo Rural">
+	<div class="app-container">
+		<!-- Panel Lateral de Servicios -->
+		<aside class="sidebar">
+			<header class="header">
+				<h1>📍 CampoConecta</h1>
+				<p>Servicios y Turismo Rural</p>
+			</header>
+
+			<div class="search-box">
+				<input type="text" placeholder="¿Qué servicio o habilidad buscas? (ej. Carpintero, Miel, Guía)..." />
+			</div>
+
+			<div class="categories">
+				<button class="chip active">All</button>
+				<button class="chip">🪚 Oficios</button>
+				<button class="chip">🍯 Productos</button>
+				<button class="chip">🥾 Turismo</button>
+				<button class="chip">🛻 Fletes</button>
+			</div>
+
+			<div class="services-list">
+				<div class="card">
+					<span class="icon">🪚</span>
+					<div class="info">
+						<h3>Don Pedro - Carpintería y Arreglos</h3>
+						<p>Trabajos en madera, cercos y estructuras.</p>
+						<span class="distance">📍 a 2.5 km • Sector Cruce Los Arrayanes</span>
+					</div>
+				</div>
+
+				<div class="card">
+					<span class="icon">🍯</span>
+					<div class="info">
+						<h3>Apicultura El Roble</h3>
+						<p>Venta de miel pura de ulmo y polen fresco.</p>
+						<span class="distance">📍 a 4.1 km • Parcela 12</span>
+					</div>
+				</div>
+
+				<div class="card">
+					<span class="icon">🥾</span>
+					<div class="info">
+						<h3>Senderos y Guiado Local</h3>
+						<p>Rutas de trekking por el bosque nativo y miradores.</p>
+						<span class="distance">📍 a 6.0 km • Río San Pedro</span>
+					</div>
+				</div>
+			</div>
+
+			<button class="btn-publish">+ Registrar mi Habilidad o Servicio</button>
+		</aside>
+
+		<!-- Área Principal del Mapa -->
+		<main class="map-container">
+			<div class="map-placeholder">
+				<div class="map-notice">
+					<h2>🗺️ Mapa Interactivo de la Zona</h2>
+					<p>Aquí se cargará el mapa en tiempo real con los íconos de los vecinos cercanos.</p>
+				</div>
+			</div>
+		</main>
+	</div>
 </Layout>
+
+<style>
+	:global(body) {
+		margin: 0;
+		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+		background-color: #f3f4f6;
+	}
+
+	.app-container {
+		display: flex;
+		height: 100vh;
+		width: 100vw;
+		overflow: hidden;
+	}
+
+	.sidebar {
+		width: 380px;
+		background-color: #ffffff;
+		border-right: 1px solid #e5e7eb;
+		display: flex;
+		flex-direction: column;
+		padding: 1.5rem;
+		box-sizing: border-box;
+		gap: 1.2rem;
+		z-index: 10;
+		box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+	}
+
+	.header h1 {
+		margin: 0;
+		font-size: 1.5rem;
+		color: #111827;
+	}
+
+	.header p {
+		margin: 0.2rem 0 0 0;
+		font-size: 0.875rem;
+		color: #6b7280;
+	}
+
+	.search-box input {
+		width: 100%;
+		padding: 0.75rem;
+		border: 1px solid #d1d5db;
+		border-radius: 8px;
+		font-size: 0.9rem;
+		box-sizing: border-box;
+		outline: none;
+	}
+
+	.categories {
+		display: flex;
+		gap: 0.5rem;
+		overflow-x: auto;
+		padding-bottom: 0.3rem;
+	}
+
+	.chip {
+		background: #f3f4f6;
+		border: none;
+		padding: 0.4rem 0.8rem;
+		border-radius: 20px;
+		font-size: 0.8rem;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.chip.active {
+		background: #15803d;
+		color: white;
+	}
+
+	.services-list {
+		flex: 1;
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.card {
+		display: flex;
+		gap: 1rem;
+		padding: 1rem;
+		border: 1px solid #f3f4f6;
+		border-radius: 10px;
+		background-color: #fafafa;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+
+	.card:hover {
+		background-color: #f0fdf4;
+		border-color: #bbf7d0;
+	}
+
+	.card .icon {
+		font-size: 1.8rem;
+	}
+
+	.card h3 {
+		margin: 0;
+		font-size: 0.95rem;
+		color: #1f2937;
+	}
+
+	.card p {
+		margin: 0.3rem 0;
+		font-size: 0.8rem;
+		color: #4b5563;
+	}
+
+	.distance {
+		font-size: 0.75rem;
+		color: #15803d;
+		font-weight: 600;
+	}
+
+	.btn-publish {
+		background-color: #15803d;
+		color: white;
+		border: none;
+		padding: 0.8rem;
+		border-radius: 8px;
+		font-weight: bold;
+		cursor: pointer;
+	}
+
+	.map-container {
+		flex: 1;
+		background-color: #e5e7eb;
+		position: relative;
+	}
+
+	.map-placeholder {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #cbd5e1;
+	}
+
+	.map-notice {
+		background: white;
+		padding: 2rem;
+		border-radius: 12px;
+		text-align: center;
+		box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+	}
+</style>
