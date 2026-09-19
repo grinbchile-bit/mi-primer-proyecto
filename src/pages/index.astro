@@ -1,5 +1,13 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { supabase } from '../lib/supabase';
+
+// Consultar la lista de proveedores registrados en Supabase
+const { data: providers, error } = await supabase.from('providers').select('*');
+
+if (error) {
+  console.error('Error al cargar servicios de Supabase:', error);
+}
 ---
 
 <Layout title="Red de Servicios y Turismo Rural">
@@ -66,19 +74,31 @@ import Layout from '../layouts/Layout.astro';
 
 <!-- Scripts para inicializar Leaflet.js -->
 <script is:inline src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script is:inline>
-	// Coordenadas iniciales (Centro de la zona rural de prueba)
-	const initialLat = -41.4717;
-	const initialLng = -72.9365;
+<script is:inline define:vars={{ providers }}>
+  // Coordenadas iniciales
+  const lat = -41.4717;
+  const lng = -72.9365;
+  const zoom = 12;
 
-	// Inicializar el mapa
-	const map = L.map('map').setView([initialLat, initialLng], 12);
+  // Inicializar mapa
+  const map = L.map('map').setView([lat, lng], zoom);
 
-	// Capa del mapa estandar desde OpenStreetMap (Ligera para conexiones 3G/4G)
-	L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-		maxZoom: 18,
-		attribution: '© OpenStreetMap'
-	}).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  // Recorrer los registros cargados de Supabase y agregarlos al mapa
+  if (providers && providers.length > 0) {
+    providers.forEach(service => {
+      if (service.lat && service.lng) {
+        L.marker([service.lat, service.lng])
+          .addTo(map)
+          .bindPopup(`<b>${service.title}</b><br>${service.description || ''}`);
+      }
+    });
+  }
+</script>
 
 	// Marcadores de prueba
 	const providers = [
