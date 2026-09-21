@@ -2,28 +2,34 @@
 import Layout from '../layouts/Layout.astro';
 import { supabase } from '../lib/supabase';
 
-// Consultar los proveedores en Supabase
 const { data: providers, error } = await supabase.from('providers').select('*');
 
 if (error) {
   console.error('Error al cargar servicios de Supabase:', error);
 }
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 ---
 
 <Layout title="RedRural - Los Muermos">
-	<!-- Hojas de estilo de Leaflet -->
 	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 	<div class="app-container">
 		<!-- Panel Lateral -->
 		<aside class="sidebar">
 			<header class="header">
-				<h1>📍 RedRural</h1>
-				<p>Servicios y Oficios de Los Muermos</p>
+				<div class="brand">
+					<span class="logo-icon">🌿</span>
+					<div>
+						<h1>RedRural</h1>
+						<p>Servicios y Oficios de Los Muermos</p>
+					</div>
+				</div>
 			</header>
 
 			<div class="search-box">
-				<input type="text" id="searchInput" placeholder="¿Qué servicio buscas? (ej. Leña, Carpintero)..." />
+				<input type="text" id="searchInput" placeholder="Buscar por servicio o sector (ej. Hua Huar, Leña)..." />
 			</div>
 
 			<div class="categories" id="categoryFilters">
@@ -31,6 +37,7 @@ if (error) {
 				<button class="chip" data-category="🪚">🪚 Oficios</button>
 				<button class="chip" data-category="🍯">🍯 Productos</button>
 				<button class="chip" data-category="🥾">🥾 Turismo</button>
+				<button class="chip" data-category="🚜">🚜 Maquinaria</button>
 			</div>
 
 			<div class="services-list" id="servicesList">
@@ -38,20 +45,24 @@ if (error) {
 					providers.map((item) => (
 						<div 
 							class="card" 
-							data-category={item.category_icon || 'otros'}
-							data-title={item.title.toLowerCase()}
+							data-category={item.category || '📍'}
+							data-title={item.title ? item.title.toLowerCase() : ''}
+							data-sector={item.sector ? item.sector.toLowerCase() : ''}
 							onclick={`centerMap(${item.lat}, ${item.lng})`}
 						>
-							<span class="icon">{item.category_icon || '📍'}</span>
+							<div class="card-icon">{item.category || '📍'}</div>
 							<div class="info">
 								<h3>{item.title}</h3>
-								<p>{item.desc || item.description || 'Sin descripción disponible.'}</p>
-								<span class="sector">📍 {item.sector || 'Los Muermos'}</span>
+								<p>{item.description || 'Sin descripción disponible.'}</p>
+								<span class="sector">📍 {item.sector || 'Sector Rural'}</span>
 							</div>
 						</div>
 					))
 				) : (
-					<p class="empty-msg">No hay servicios registrados aún en este sector.</p>
+					<div class="empty-state">
+						<span class="empty-icon">🌾</span>
+						<p>No hay servicios registrados aún.</p>
+					</div>
 				)}
 			</div>
 
@@ -64,17 +75,17 @@ if (error) {
 		</main>
 	</div>
 
-	<!-- Modal de Autorregistro -->
+	<!-- Modal de Autorregistro con Consentimiento y GPS -->
 	<div id="registerModal" class="modal-overlay">
 		<div class="modal-content">
 			<div class="modal-header">
-				<h2>Registrar Servicio u Oficio</h2>
+				<h2>🌱 Registrar Servicio u Oficio</h2>
 				<button id="closeModalBtn" class="close-btn">&times;</button>
 			</div>
 			
 			<form id="registerForm" class="register-form">
 				<label>
-					Título / Nombre del Negocio
+					Nombre del Servicio o Prestador
 					<input type="text" id="regTitle" placeholder="Ej: Don Pedro Carpintería" required />
 				</label>
 
@@ -90,27 +101,47 @@ if (error) {
 				</label>
 
 				<label>
-					Sector / Localidad
-					<input type="text" id="regSector" placeholder="Ej: Miramar Bajo, Los Piques..." required />
+					Sector / Localidad Rural
+					<select id="regSector" required>
+						<option value="" disabled selected>Selecciona tu sector...</option>
+						<option value="El Melí">El Melí</option>
+						<option value="San Carlos">San Carlos</option>
+						<option value="Cordillera Vieja">Cordillera Vieja</option>
+						<option value="Hua Huar">Hua Huar</option>
+						<option value="Los Piques">Los Piques</option>
+						<option value="Esperanza">Esperanza</option>
+						<option value="Tambor Bajo">Tambor Bajo</option>
+						<option value="Miramar Bajo">Miramar Bajo</option>
+						<option value="Estaquilla">Estaquilla</option>
+						<option value="Los Muermos Centro">Los Muermos Centro</option>
+						<option value="Otro">Otro Sector</option>
+					</select>
 				</label>
 
 				<label>
-					Descripción
-					<textarea id="regDesc" rows="3" placeholder="Describe brevemente tus productos o servicios..."></textarea>
+					Descripción de lo que ofreces
+					<textarea id="regDesc" rows="2" placeholder="Ej: Miel de ulmo, fletes, leña seca..."></textarea>
 				</label>
 
 				<label>
-					Teléfono / WhatsApp
+					Teléfono / WhatsApp de contacto
 					<input type="tel" id="regPhone" placeholder="+56912345678" required />
 				</label>
 
 				<div class="coords-info">
-					<p>📌 <b>Ubicación:</b> Haz clic en el mapa de fondo para marcar tu posición.</p>
+					<p>📌 <b>Geolocalización:</b> Toca el mapa o usa tu ubicación actual.</p>
+					<button type="button" id="btnGps" class="btn-gps">📡 Usar mi Ubicación Actual (GPS)</button>
 					<div class="coords-fields">
 						<input type="text" id="regLat" placeholder="Latitud" readonly required />
 						<input type="text" id="regLng" placeholder="Longitud" readonly required />
 					</div>
 				</div>
+
+				<!-- Casilla de Consentimiento -->
+				<label class="consent-label">
+					<input type="checkbox" id="regConsent" required />
+					<span>Autorizo publicar mi teléfono y posición en el mapa público de RedRural.</span>
+				</label>
 
 				<button type="submit" id="submitBtn" class="btn-submit">Guardar en el Mapa</button>
 			</form>
@@ -118,126 +149,186 @@ if (error) {
 	</div>
 </Layout>
 
-<!-- Scripts para Leaflet.js y Lógica de Registro con Supabase -->
 <script is:inline src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script is:inline define:vars={{ providers }}>
-  // Coordenadas centradas en Los Muermos / Miramar Bajo / Los Piques
-  const defaultLat = -41.3917;
-  const defaultLng = -73.4735;
-  const zoom = 12;
+<script is:inline define:vars={{ providers, supabaseUrl, supabaseAnonKey }}>
+  document.addEventListener('DOMContentLoaded', () => {
+    const defaultLat = -41.3917;
+    const defaultLng = -73.4735;
+    const zoom = 11;
 
-  // Inicializar mapa
-  const map = L.map('map').setView([defaultLat, defaultLng], zoom);
+    const map = L.map('map').setView([defaultLat, defaultLng], zoom);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-    attribution: '© OpenStreetMap'
-  }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
 
-  let tempMarker = null;
+    let tempMarker = null;
 
-  // Renderizar Marcadores desde Supabase
-  if (providers && providers.length > 0) {
-    providers.forEach(service => {
-      if (service.lat && service.lng) {
-        L.marker([service.lat, service.lng])
-          .addTo(map)
-          .bindPopup(`
-            <div style="font-family: sans-serif; min-width: 160px;">
-              <h3 style="margin:0 0 5px 0; font-size:1rem;">${service.category_icon || '📍'} ${service.title}</h3>
-              <p style="margin:0 0 5px 0; font-size: 0.85rem; color:#4b5563;">${service.desc || service.description || ''}</p>
-              <span style="font-size:0.75rem; color:#15803d; font-weight:bold;">📍 Sector: ${service.sector || 'Los Muermos'}</span><br>
-              <a href="https://wa.me/${service.phone}" target="_blank" style="display:inline-block; margin-top:6px; color:#15803d; font-weight:bold; text-decoration:none;">💬 Contactar por WhatsApp</a>
-            </div>
-          `);
-      }
+    const defaultIcon = L.icon({
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
     });
-  }
 
-  // Centrar mapa
-  window.centerMap = function(targetLat, targetLng) {
-    if (targetLat && targetLng) {
-      map.flyTo([targetLat, targetLng], 15, { duration: 1.5 });
+    if (providers && Array.isArray(providers)) {
+      providers.forEach(service => {
+        if (service.lat && service.lng) {
+          const icon = service.category || '📍';
+          const desc = service.description || '';
+
+          L.marker([service.lat, service.lng], { icon: defaultIcon })
+            .addTo(map)
+            .bindPopup(`
+              <div style="font-family: system-ui, sans-serif; min-width: 170px;">
+                <h3 style="margin:0 0 6px 0; font-size:1rem; color:#1b4332;">${icon} ${service.title}</h3>
+                <p style="margin:0 0 8px 0; font-size: 0.85rem; color:#4a5568;">${desc}</p>
+                <span style="font-size:0.75rem; color:#2d6a4f; font-weight:600;">📍 Sector: ${service.sector || 'Sector Rural'}</span><br>
+                <a href="https://wa.me/${service.phone}" target="_blank" style="display:inline-block; margin-top:8px; padding: 4px 8px; background-color:#2d6a4f; color:white; font-size:0.75rem; border-radius:4px; font-weight:bold; text-decoration:none;">💬 Contactar por WhatsApp</a>
+              </div>
+            `);
+        }
+      });
     }
-  };
 
-  // Capturar clic en el mapa para el formulario
-  map.on('click', (e) => {
-    const { lat, lng } = e.latlng;
-    document.getElementById('regLat').value = lat.toFixed(6);
-    document.getElementById('regLng').value = lng.toFixed(6);
-
-    if (tempMarker) {
-      tempMarker.setLatLng(e.latlng);
-    } else {
-      tempMarker = L.marker(e.latlng, { opacity: 0.8 }).addTo(map);
-    }
-  });
-
-  // Modal Control
-  const modal = document.getElementById('registerModal');
-  const openBtn = document.getElementById('openModalBtn');
-  const closeBtn = document.getElementById('closeModalBtn');
-
-  openBtn.addEventListener('click', () => {
-    modal.classList.add('active');
-  });
-
-  closeBtn.addEventListener('click', () => {
-    modal.classList.remove('active');
-  });
-
-  // Filtro de Búsqueda
-  const searchInput = document.getElementById('searchInput');
-  searchInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase();
-    const cards = document.querySelectorAll('.card');
-
-    cards.forEach(card => {
-      const title = card.getAttribute('data-title') || '';
-      if (title.includes(query)) {
-        card.style.display = 'flex';
-      } else {
-        card.style.display = 'none';
+    window.centerMap = function(targetLat, targetLng) {
+      if (targetLat && targetLng) {
+        map.flyTo([targetLat, targetLng], 15, { duration: 1.2 });
       }
-    });
-  });
-
-  // Envío del Formulario a Supabase
-  const registerForm = document.getElementById('registerForm');
-  registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.innerText = "Guardando...";
-    submitBtn.disabled = true;
-
-    const payload = {
-      title: document.getElementById('regTitle').value,
-      category_icon: document.getElementById('regCategory').value,
-      sector: document.getElementById('regSector').value,
-      desc: document.getElementById('regDesc').value,
-      phone: document.getElementById('regPhone').value,
-      lat: parseFloat(document.getElementById('regLat').value),
-      lng: parseFloat(document.getElementById('regLng').value)
     };
 
-    try {
-      // Importar cliente Supabase local desde runtime
-      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
-      const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-      const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-      const supabaseClient = createClient(supabaseUrl, supabaseKey);
+    // Selección manual en el mapa
+    map.on('click', (e) => {
+      setCoordinates(e.latlng.lat, e.latlng.lng);
+    });
 
-      const { error } = await supabaseClient.from('providers').insert([payload]);
+    // Función auxiliar para actualizar coordenadas y marcador temporal
+    function setCoordinates(lat, lng) {
+      const latInput = document.getElementById('regLat');
+      const lngInput = document.getElementById('regLng');
+      
+      if (latInput && lngInput) {
+        latInput.value = lat.toFixed(6);
+        lngInput.value = lng.toFixed(6);
+      }
 
-      if (error) throw error;
+      if (tempMarker) {
+        tempMarker.setLatLng([lat, lng]);
+      } else {
+        tempMarker = L.marker([lat, lng], { icon: defaultIcon }).addTo(map);
+      }
+    }
 
-      alert('¡Servicio publicado con éxito!');
-      window.location.reload();
-    } catch (err) {
-      alert('Error al guardar: ' + err.message);
-      submitBtn.innerText = "Guardar en el Mapa";
-      submitBtn.disabled = false;
+    // Botón GPS
+    const btnGps = document.getElementById('btnGps');
+    if (btnGps) {
+      btnGps.addEventListener('click', () => {
+        if ('geolocation' in navigator) {
+          btnGps.innerText = "Obteniendo ubicación...";
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const { latitude, longitude } = pos.coords;
+              setCoordinates(latitude, longitude);
+              map.flyTo([latitude, longitude], 15);
+              btnGps.innerText = "✅ Ubicación Detectada";
+            },
+            (err) => {
+              alert("No se pudo obtener la ubicación automáticamente. Por favor haz clic directamente en el mapa.");
+              btnGps.innerText = "📡 Usar mi Ubicación Actual (GPS)";
+            },
+            { enableHighAccuracy: true }
+          );
+        } else {
+          alert("Tu navegador no soporta geolocalización GPS.");
+        }
+      });
+    }
+
+    // Modal
+    const modal = document.getElementById('registerModal');
+    const openBtn = document.getElementById('openModalBtn');
+    const closeBtn = document.getElementById('closeModalBtn');
+
+    if (openBtn && modal) {
+      openBtn.addEventListener('click', () => modal.classList.add('active'));
+    }
+    if (closeBtn && modal) {
+      closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+    }
+
+    // Buscador
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        const cards = document.querySelectorAll('.card');
+
+        cards.forEach(card => {
+          const title = card.getAttribute('data-title') || '';
+          const sector = card.getAttribute('data-sector') || '';
+          if (title.includes(query) || sector.includes(query)) {
+            card.style.display = 'flex';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      });
+    }
+
+    // Envio a Supabase con confirmación
+    const registerForm = document.getElementById('registerForm');
+    if (registerForm) {
+      registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const consent = document.getElementById('regConsent').checked;
+        if (!consent) {
+          alert("Debes aceptar la casilla de consentimiento para publicar tus datos.");
+          return;
+        }
+
+        const latVal = parseFloat(document.getElementById('regLat').value);
+        const lngVal = parseFloat(document.getElementById('regLng').value);
+
+        if (isNaN(latVal) || isNaN(lngVal)) {
+          alert("Por favor selecciona tu ubicación en el mapa o usa el botón de GPS.");
+          return;
+        }
+
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.innerText = "Guardando en Supabase...";
+        submitBtn.disabled = true;
+
+        const payload = {
+          title: document.getElementById('regTitle').value,
+          category: document.getElementById('regCategory').value,
+          sector: document.getElementById('regSector').value,
+          description: document.getElementById('regDesc').value,
+          phone: document.getElementById('regPhone').value,
+          lat: latVal,
+          lng: lngVal
+        };
+
+        try {
+          const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
+          const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+
+          const { data, error } = await supabaseClient.from('providers').insert([payload]).select();
+
+          if (error) throw error;
+
+          alert('¡Tu servicio ha sido registrado exitosamente en RedRural!');
+          window.location.reload();
+        } catch (err) {
+          alert('Ocurrió un error al guardar en la base de datos: ' + err.message);
+          submitBtn.innerText = "Guardar en el Mapa";
+          submitBtn.disabled = false;
+        }
+      });
     }
   });
 </script>
@@ -246,7 +337,8 @@ if (error) {
 	:global(body) {
 		margin: 0;
 		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-		background-color: #f3f4f6;
+		background-color: #faf9f5;
+		color: #2d3748;
 	}
 
 	.app-container {
@@ -259,40 +351,51 @@ if (error) {
 	.sidebar {
 		width: 380px;
 		background-color: #ffffff;
-		border-right: 1px solid #e5e7eb;
+		border-right: 1px solid #e2e8f0;
 		display: flex;
 		flex-direction: column;
 		padding: 1.5rem;
 		box-sizing: border-box;
 		gap: 1.2rem;
 		z-index: 1000;
-		box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+		box-shadow: 4px 0 15px rgba(27, 67, 50, 0.05);
+	}
+
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.logo-icon {
+		font-size: 2rem;
+		background: #e8f5e9;
+		padding: 0.4rem;
+		border-radius: 12px;
 	}
 
 	.header h1 {
 		margin: 0;
-		font-size: 1.5rem;
-		color: #15803d;
+		font-size: 1.4rem;
+		color: #1b4332;
+		font-weight: 700;
 	}
 
 	.header p {
 		margin: 0.2rem 0 0 0;
-		font-size: 0.875rem;
-		color: #6b7280;
+		font-size: 0.85rem;
+		color: #52796f;
 	}
 
 	.search-box input {
 		width: 100%;
-		padding: 0.75rem;
-		border: 1px solid #d1d5db;
-		border-radius: 8px;
+		padding: 0.75rem 1rem;
+		border: 1.5px solid #d8f3dc;
+		border-radius: 10px;
 		font-size: 0.9rem;
 		box-sizing: border-box;
 		outline: none;
-	}
-
-	.search-box input:focus {
-		border-color: #15803d;
+		background-color: #faf9f5;
 	}
 
 	.categories {
@@ -303,17 +406,19 @@ if (error) {
 	}
 
 	.chip {
-		background: #f3f4f6;
-		border: none;
+		background: #f0fdf4;
+		border: 1px solid #d8f3dc;
+		color: #2d6a4f;
 		padding: 0.4rem 0.8rem;
 		border-radius: 20px;
 		font-size: 0.8rem;
+		font-weight: 600;
 		cursor: pointer;
 		white-space: nowrap;
 	}
 
 	.chip.active {
-		background: #15803d;
+		background: #2d6a4f;
 		color: white;
 	}
 
@@ -322,74 +427,62 @@ if (error) {
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: 0.8rem;
 	}
 
 	.card {
 		display: flex;
-		gap: 1rem;
-		padding: 1rem;
-		border: 1px solid #e5e7eb;
-		border-radius: 10px;
-		background-color: #fafafa;
+		gap: 0.8rem;
+		padding: 0.9rem;
+		border: 1px solid #e2e8f0;
+		border-radius: 12px;
+		background-color: #ffffff;
 		cursor: pointer;
-		transition: all 0.2s ease;
 	}
 
-	.card:hover {
-		background-color: #f0fdf4;
-		border-color: #bbf7d0;
-		transform: translateY(-2px);
-	}
-
-	.card .icon {
-		font-size: 1.8rem;
+	.card-icon {
+		font-size: 1.6rem;
+		background: #f0fdf4;
+		width: 42px;
+		height: 42px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 10px;
+		flex-shrink: 0;
 	}
 
 	.card h3 {
 		margin: 0;
 		font-size: 0.95rem;
-		color: #1f2937;
+		color: #1b4332;
 	}
 
 	.card p {
-		margin: 0.3rem 0;
+		margin: 0.2rem 0 0.4rem 0;
 		font-size: 0.8rem;
-		color: #4b5563;
+		color: #4a5568;
 	}
 
 	.sector {
 		font-size: 0.75rem;
-		color: #15803d;
+		color: #2d6a4f;
 		font-weight: 600;
 	}
 
-	.empty-msg {
-		font-size: 0.85rem;
-		color: #9ca3af;
-		text-align: center;
-		margin-top: 2rem;
-	}
-
 	.btn-publish {
-		background-color: #15803d;
+		background-color: #1b4332;
 		color: white;
 		border: none;
-		padding: 0.8rem;
-		border-radius: 8px;
-		font-weight: bold;
+		padding: 0.9rem;
+		border-radius: 10px;
+		font-weight: 700;
 		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.btn-publish:hover {
-		background-color: #166534;
 	}
 
 	.map-container {
 		flex: 1;
 		height: 100%;
-		position: relative;
 	}
 
 	#map {
@@ -397,14 +490,14 @@ if (error) {
 		height: 100%;
 	}
 
-	/* Modal Styles */
 	.modal-overlay {
 		position: fixed;
 		top: 0;
 		left: 0;
 		width: 100vw;
 		height: 100vh;
-		background: rgba(0,0,0,0.5);
+		background: rgba(27, 67, 50, 0.4);
+		backdrop-filter: blur(4px);
 		display: none;
 		justify-content: center;
 		align-items: center;
@@ -416,12 +509,13 @@ if (error) {
 	}
 
 	.modal-content {
-		background: white;
-		padding: 1.5rem;
-		border-radius: 12px;
+		background: #ffffff;
+		padding: 1.8rem;
+		border-radius: 16px;
 		width: 90%;
-		max-width: 420px;
-		box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+		max-width: 440px;
+		max-height: 90vh;
+		overflow-y: auto;
 	}
 
 	.modal-header {
@@ -429,12 +523,6 @@ if (error) {
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 1rem;
-	}
-
-	.modal-header h2 {
-		margin: 0;
-		font-size: 1.2rem;
-		color: #15803d;
 	}
 
 	.close-btn {
@@ -455,44 +543,68 @@ if (error) {
 		flex-direction: column;
 		font-size: 0.8rem;
 		font-weight: 600;
-		color: #374151;
-		gap: 0.2rem;
+		color: #2d3748;
+		gap: 0.3rem;
 	}
 
 	.register-form input, .register-form select, .register-form textarea {
-		padding: 0.5rem;
-		border: 1px solid #d1d5db;
-		border-radius: 6px;
+		padding: 0.6rem;
+		border: 1px solid #cbd5e0;
+		border-radius: 8px;
 		font-size: 0.85rem;
+	}
+
+	.btn-gps {
+		background: #e8f5e9;
+		color: #1b4332;
+		border: 1px solid #b7e4c7;
+		padding: 0.5rem;
+		border-radius: 6px;
+		font-weight: 600;
+		font-size: 0.8rem;
+		cursor: pointer;
+		margin-bottom: 0.4rem;
 	}
 
 	.coords-info {
 		background: #f0fdf4;
-		padding: 0.6rem;
-		border-radius: 6px;
+		padding: 0.75rem;
+		border-radius: 8px;
+		border: 1px solid #b7e4c7;
 		font-size: 0.75rem;
 	}
 
 	.coords-fields {
 		display: flex;
 		gap: 0.5rem;
-		margin-top: 0.4rem;
 	}
 
 	.coords-fields input {
 		width: 50%;
-		background: #e5e7eb;
+		background: #e2e8f0;
+	}
+
+	.consent-label {
+		flex-direction: row !important;
+		align-items: flex-start;
+		gap: 0.5rem !important;
+		font-weight: normal !important;
+		font-size: 0.75rem !important;
+		color: #4a5568 !important;
+	}
+
+	.consent-label input {
+		margin-top: 0.1rem;
 	}
 
 	.btn-submit {
-		background: #15803d;
+		background: #2d6a4f;
 		color: white;
 		border: none;
-		padding: 0.75rem;
-		border-radius: 6px;
-		font-weight: bold;
+		padding: 0.85rem;
+		border-radius: 8px;
+		font-weight: 700;
 		cursor: pointer;
-		margin-top: 0.5rem;
 	}
 
 	@media (max-width: 768px) {
@@ -501,10 +613,10 @@ if (error) {
 		}
 		.sidebar {
 			width: 100%;
-			height: 50vh;
+			height: 55vh;
 		}
 		.map-container {
-			height: 50vh;
+			height: 45vh;
 		}
 	}
 </style>
