@@ -2,707 +2,671 @@
 import Layout from '../layouts/Layout.astro';
 import { supabase } from '../lib/supabase';
 
-const { data: providers, error } = await supabase.from('providers').select('*');
+// Consultar la lista de proveedores registrados en Supabase
+const { data: providersData, error } = await supabase.from('providers').select('*');
 
 if (error) {
   console.error('Error al cargar servicios de Supabase:', error);
 }
 
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-const serviceCount = providers?.length ?? 0;
+const initialProviders = providersData || [];
+const PUBLIC_SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 ---
 
-<Layout title="RedRural — Los Muermos">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<Layout title="RedRural - Servicios y Turismo Rural">
+  <!-- Carga de Leaflet y Supabase Client -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script is:inline src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script is:inline src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<div class="app-layout">
-  <!-- PANEL LATERAL IZQUIERDO EN PC / INFERIOR EN MÓVIL -->
-  <aside class="sidebar">
-    <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="app-container">
+    <!-- Panel Lateral de Servicios -->
+    <aside class="sidebar">
+      <header class="header">
+        <h1>📍 RedRural</h1>
+        <p>Servicios y Turismo Rural</p>
+      </header>
 
-    <header class="brand-bar">
-      <div class="brand">
-        <div class="mark">R</div>
-        <div>
-          <h1>RedRural</h1>
-          <p>Los Muermos · {serviceCount} {serviceCount === 1 ? 'servicio' : 'servicios'}</p>
-        </div>
-      </div>
-    </header>
-
-    <div class="search-wrap">
-      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
-        <path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-      </svg>
-      <input type="text" id="searchInput" placeholder="¿Qué necesitas? Leña, flete, miel..." autocomplete="off" />
-    </div>
-
-    <div class="chips" id="categoryFilters" role="tablist">
-      <button class="chip active" data-category="todos" type="button">Todos</button>
-      <button class="chip" data-category="🪚" type="button">Oficios</button>
-      <button class="chip" data-category="🍯" type="button">Productos</button>
-      <button class="chip" data-category="🥾" type="button">Turismo</button>
-      <button class="chip" data-category="🚜" type="button">Maquinaria</button>
-    </div>
-
-    <div class="list-head">
-      <h2>Cerca de ti</h2>
-      <span id="visibleCount">{serviceCount}</span>
-    </div>
-
-    <div class="services-list" id="servicesList">
-      {providers && providers.length > 0 ? (
-        providers.map((item) => {
-          const icon = item.category || '📍';
-          const description = item.description || 'Sin descripción disponible.';
-          return (
-            <button
-              type="button"
-              class="card"
-              data-category={icon}
-              data-title={item.title ? item.title.toLowerCase() : ''}
-              data-lat={item.lat ?? ''}
-              data-lng={item.lng ?? ''}
-            >
-              <div class="card-icon">{icon}</div>
-              <div class="info">
-                <div class="info-top">
-                  <h3>{item.title}</h3>
-                  <span class="eta">Ver mapa</span>
-                </div>
-                <p>{description}</p>
-              </div>
-            </button>
-          );
-        })
-      ) : (
-        <div class="empty">
-          <div class="empty-mark">R</div>
-          <p>Aún no hay servicios publicados.</p>
-          <span>Sé el primero en registrar tu oficio.</span>
-        </div>
-      )}
-    </div>
-
-    <button class="cta" id="openModalBtn" type="button">+ Registrar mi servicio</button>
-  </aside>
-
-  <!-- CONTENEDOR DEL MAPA -->
-  <main class="map-stage">
-    <div id="map"></div>
-    <button class="fab locate" id="locateBtn" type="button" aria-label="Mi ubicación">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <circle cx="12" cy="12" r="3" fill="currentColor" />
-        <path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-      </svg>
-    </button>
-  </main>
-</div>
-
-<!-- MODAL REGISTRO -->
-<div id="registerModal" class="modal" aria-hidden="true">
-  <div class="modal-scrim" id="modalScrim"></div>
-  <div class="modal-card" role="dialog" aria-labelledby="modalTitle">
-    <div class="modal-top">
-      <div>
-        <p class="kicker">Publicar</p>
-        <h2 id="modalTitle">Tu servicio en el mapa</h2>
-      </div>
-      <button id="closeModalBtn" class="icon-btn" type="button" aria-label="Cerrar">&times;</button>
-    </div>
-
-    <form id="registerForm" class="form">
-      <label>
-        Nombre del servicio o prestador
-        <input type="text" id="regTitle" placeholder="Ej: Don Pedro Carpintería" required />
-      </label>
-
-      <label>
-        Categoría
-        <select id="regCategory">
-          <option value="🪚">Oficio / Trabajo</option>
-          <option value="🍯">Producto / Venta local</option>
-          <option value="🥾">Turismo / Hospedaje</option>
-          <option value="🚜">Maquinaria / Transporte</option>
-          <option value="📍">Otro</option>
-        </select>
-      </label>
-
-      <label>
-        Qué ofreces
-        <textarea id="regDesc" rows="2" placeholder="Miel de ulmo, fletes, leña seca..."></textarea>
-      </label>
-
-      <label>
-        WhatsApp
-        <input type="tel" id="regPhone" placeholder="+56912345678" required />
-      </label>
-
-      <div class="gps-box">
-        <div>
-          <strong>Punto en el mapa</strong>
-          <p>Toca el mapa o usa tu GPS.</p>
-        </div>
-        <button type="button" id="btnGps" class="ghost">Usar mi ubicación</button>
-        <div class="coords">
-          <input type="text" id="regLat" placeholder="Latitud" readonly required />
-          <input type="text" id="regLng" placeholder="Longitud" readonly required />
-        </div>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="¿Qué servicio buscas? (ej. Carpintero, Miel)..." />
       </div>
 
-      <label class="consent">
-        <input type="checkbox" id="regConsent" required />
-        <span>Autorizo publicar mi teléfono y posición en el mapa público de RedRural.</span>
-      </label>
+      <div class="categories" id="categoryChips">
+        <button class="chip active" data-category="Todos">Todos</button>
+        <button class="chip" data-category="🪚">🪚 Oficios</button>
+        <button class="chip" data-category="🍯">🍯 Productos</button>
+        <button class="chip" data-category="🥾">🥾 Turismo</button>
+      </div>
 
-      <button type="submit" id="submitBtn" class="cta">Confirmar y publicar</button>
-    </form>
+      <div class="services-list" id="servicesList">
+        {initialProviders.map((p) => (
+          <div 
+            class="card" 
+            data-category={p.category || '📍'}
+            data-title={p.title}
+            data-desc={p.description || ''}
+            onclick={`window.focusService(${p.lat}, ${p.lng}, '${p.id}')`}
+          >
+            <span class="icon">{p.category || '📍'}</span>
+            <div class="info">
+              <h3>{p.title}</h3>
+              <p>{p.description}</p>
+              {p.phone && <span class="phone">📞 {p.phone}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button class="btn-publish" id="openModalBtn">+ Registrar mi Habilidad o Servicio</button>
+    </aside>
+
+    <!-- Área Principal del Mapa -->
+    <main class="map-container">
+      <div id="map"></div>
+    </main>
   </div>
-</div>
+
+  <!-- Modal de Registro -->
+  <div class="modal-overlay" id="registerModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Registrar mi Servicio</h2>
+        <button class="close-btn" id="closeModalBtn">&times;</button>
+      </div>
+      <form id="registerForm">
+        <div class="form-group">
+          <label for="regTitle">Título del servicio / Nombre *</label>
+          <input type="text" id="regTitle" required placeholder="Ej: Don Pedro - Carpintería" />
+        </div>
+
+        <div class="form-group">
+          <label for="regCategory">Categoría *</label>
+          <select id="regCategory" required>
+            <option value="🪚">🪚 Oficios y Trabajos</option>
+            <option value="🍯">🍯 Productos Locales</option>
+            <option value="🥾">🥾 Turismo y Guiados</option>
+            <option value="📍">📍 Otro Servicio</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="regDesc">Descripción del servicio</label>
+          <textarea id="regDesc" rows="3" placeholder="Describe brevemente tus servicios o productos..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="regPhone">Teléfono de contacto</label>
+          <input type="tel" id="regPhone" placeholder="+56 9 1234 5678" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="regLat">Latitud *</label>
+            <input type="number" step="any" id="regLat" required readonly />
+          </div>
+          <div class="form-group">
+            <label for="regLng">Longitud *</label>
+            <input type="number" step="any" id="regLng" required readonly />
+          </div>
+        </div>
+        
+        <p class="map-instruction">💡 Haz clic en el mapa para marcar la ubicación exacta de tu servicio.</p>
+
+        <div class="form-checkbox">
+          <input type="checkbox" id="regConsent" required />
+          <label for="regConsent">Acepto publicar esta información en la red pública.</label>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submitBtn">Confirmar y publicar</button>
+      </form>
+    </div>
+  </div>
 </Layout>
 
-<script is:inline src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script is:inline src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script is:inline define:vars={{ initialProviders, PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY }}>
+  // Variables de Supabase
+  const supabaseUrl = PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = PUBLIC_SUPABASE_ANON_KEY;
 
-<script is:inline define:vars={{ providers, supabaseUrl, supabaseAnonKey }}>
-  document.addEventListener('DOMContentLoaded', () => {
-    const defaultLat = -41.3917;
-    const defaultLng = -73.4735;
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([defaultLat, defaultLng], 11);
+  // Inicialización del Mapa
+  const defaultLat = -41.4717;
+  const defaultLng = -72.9365;
+  const map = L.map('map').setView([defaultLat, defaultLng], 12);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
+  // Capa de Mapa CartoDB Positron / OpenStreetMap
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  }).addTo(map);
 
-    L.control.zoom({ position: 'topright' }).addTo(map);
-    setTimeout(() => map.invalidateSize(), 250);
+  const markersByKey = new Map();
+  let tempMarker = null;
 
-    let tempMarker = null;
-    const markersByKey = new Map();
-    let activeCard = null;
-
-    function pinIcon(emoji, selected) {
-      const iconSymbol = emoji && emoji.trim() !== '' ? emoji : '📍';
-      return L.divIcon({
-        className: 'rr-pin-wrap',
-        html: `<div class="rr-pin${selected ? ' is-on' : ''}"><span>${iconSymbol}</span></div>`,
-        iconSize: [44, 52],
-        iconAnchor: [22, 46],
-        popupAnchor: [0, -40]
-      });
-    }
-
-    function popupHtml(service) {
-      const icon = service.category || '📍';
-      const desc = service.description || 'Sin descripción';
-      const phone = (service.phone || '').replace(/\D/g, '');
-      return `
-        <div class="rr-pop">
-          <div class="rr-pop-kicker">${icon} Servicio</div>
-          <h3>${service.title}</h3>
-          <p>${desc}</p>
-          ${phone ? `<a class="rr-wa" href="https://wa.me/${phone}" target="_blank" rel="noopener">Contactar por WhatsApp</a>` : ''}
-        </div>
-      `;
-    }
-
-    if (providers && Array.isArray(providers)) {
-      providers.forEach((service) => {
-        if (service.lat && service.lng) {
-          const icon = service.category || '📍';
-          const marker = L.marker([service.lat, service.lng], { icon: pinIcon(icon, false) })
-            .addTo(map)
-            .bindPopup(popupHtml(service), { className: 'rr-popup' });
-          markersByKey.set(`${service.lat}|${service.lng}`, { marker, service });
-        }
-      });
-    }
-
-    function selectCard(card) {
-      if (activeCard) activeCard.classList.remove('is-active');
-      activeCard = card;
-      if (card) card.classList.add('is-active');
-    }
-
-    function flyTo(latStr, lngStr, card) {
-      const lat = parseFloat(latStr);
-      const lng = parseFloat(lngStr);
-      if (isNaN(lat) || isNaN(lng)) return;
-
-      map.flyTo([lat, lng], 15, { duration: 1.05 });
-      const found = markersByKey.get(`${lat}|${lng}`);
-      if (found) {
-        found.marker.openPopup();
-      }
-      selectCard(card);
-    }
-
-    document.querySelectorAll('.card').forEach((card) => {
-      card.addEventListener('click', () => {
-        flyTo(card.dataset.lat, card.dataset.lng, card);
-      });
+  // Función para crear íconos personalizados de Leaflet
+  function pinIcon(categoryIcon) {
+    return L.divIcon({
+      className: 'custom-pin',
+      html: `<div class="pin-bubble">${categoryIcon || '📍'}</div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 36],
+      popupAnchor: [0, -34]
     });
+  }
 
-    function setCoordinates(lat, lng) {
-      const latInput = document.getElementById('regLat');
-      const lngInput = document.getElementById('regLng');
-      if (latInput && lngInput) {
-        latInput.value = lat.toFixed(6);
-        lngInput.value = lng.toFixed(6);
-      }
+  // Generar HTML de la ventana emergente (Popup)
+  function popupHtml(service) {
+    return `
+      <div class="popup-card">
+        <span class="popup-icon">${service.category || '📍'}</span>
+        <h3>${service.title}</h3>
+        <p>${service.description || ''}</p>
+        ${service.phone ? `<p class="popup-phone">📞 <strong>${service.phone}</strong></p>` : ''}
+      </div>
+    `;
+  }
+
+  // Cargar marcadores iniciales recibidos desde Astro SSR
+  initialProviders.forEach(p => {
+    if (p.lat && p.lng) {
+      const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category) })
+        .addTo(map)
+        .bindPopup(popupHtml(p));
+      markersByKey.set(`${p.lat}|${p.lng}`, { marker, service: p });
+    }
+  });
+
+  // Función global para centrar el mapa desde las tarjetas de la lista
+  window.focusService = function(lat, lng, id) {
+    map.flyTo([lat, lng], 15, { duration: 1.2 });
+    const target = markersByKey.get(`${lat}|${lng}`);
+    if (target) {
+      target.marker.openPopup();
+    }
+  };
+
+  // --- Modal y Selector de Ubicación ---
+  const modal = document.getElementById('registerModal');
+  const openModalBtn = document.getElementById('openModalBtn');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+
+  function openModal() {
+    modal.classList.add('active');
+  }
+
+  function closeModal() {
+    modal.classList.remove('active');
+    if (tempMarker) {
+      map.removeLayer(tempMarker);
+      tempMarker = null;
+    }
+  }
+
+  if (openModalBtn) openModalBtn.addEventListener('click', openModal);
+  if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+
+  // Capturar clic en el mapa para asignar coordenadas al formulario
+  map.on('click', (e) => {
+    if (modal.classList.contains('active')) {
+      const { lat, lng } = e.latlng;
+      document.getElementById('regLat').value = lat.toFixed(6);
+      document.getElementById('regLng').value = lng.toFixed(6);
+
       if (tempMarker) {
-        tempMarker.setLatLng([lat, lng]);
+        tempMarker.setLatLng(e.latlng);
       } else {
-        tempMarker = L.marker([lat, lng], { icon: pinIcon('📍', true) }).addTo(map);
+        tempMarker = L.marker(e.latlng, { icon: pinIcon('📍') }).addTo(map);
       }
     }
+  });
 
-    map.on('click', (e) => setCoordinates(e.latlng.lat, e.latlng.lng));
+  // --- Envío del Formulario a Supabase con Actualización en Vivo ---
+  const registerForm = document.getElementById('registerForm');
+  if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
 
-    const locateBtn = document.getElementById('locateBtn');
-    const btnGps = document.getElementById('btnGps');
+      const consent = document.getElementById('regConsent').checked;
+      if (!consent) {
+        alert('Debes aceptar el consentimiento.');
+        return;
+      }
 
-    if (locateBtn) {
-      locateBtn.addEventListener('click', () => {
-        if (!('geolocation' in navigator)) return;
-        navigator.geolocation.getCurrentPosition(
-          (pos) => map.flyTo([pos.coords.latitude, pos.coords.longitude], 15),
-          () => alert('Activa la ubicación para centrar el mapa.')
-        );
-      });
-    }
+      const latVal = parseFloat(document.getElementById('regLat').value);
+      const lngVal = parseFloat(document.getElementById('regLng').value);
+      if (isNaN(latVal) || isNaN(lngVal)) {
+        alert('Por favor haz clic en el mapa para marcar la ubicación exacta de tu servicio.');
+        return;
+      }
 
-    if (btnGps) {
-      btnGps.addEventListener('click', () => {
-        if (!('geolocation' in navigator)) return;
-        btnGps.innerText = 'Buscando…';
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            setCoordinates(pos.coords.latitude, pos.coords.longitude);
-            map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
-            btnGps.innerText = 'Ubicación lista';
-          },
-          () => {
-            alert('No se pudo obtener la ubicación.');
-            btnGps.innerText = 'Usar mi ubicación';
-          }
-        );
-      });
-    }
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.innerText = 'Publicando…';
+      submitBtn.disabled = true;
 
-    const modal = document.getElementById('registerModal');
-    const openBtn = document.getElementById('openModalBtn');
-    const closeBtn = document.getElementById('closeModalBtn');
-    const scrim = document.getElementById('modalScrim');
+      const categorySelected = document.getElementById('regCategory').value;
 
-    function openModal() {
-      modal.classList.add('is-open');
-      modal.setAttribute('aria-hidden', 'false');
-    }
-    function closeModal() {
-      modal.classList.remove('is-open');
-      modal.setAttribute('aria-hidden', 'true');
-    }
+      const payload = {
+        title: document.getElementById('regTitle').value,
+        category: categorySelected || '📍',
+        description: document.getElementById('regDesc').value,
+        phone: document.getElementById('regPhone').value,
+        lat: latVal,
+        lng: lngVal
+      };
 
-    if (openBtn) openBtn.addEventListener('click', openModal);
-    if (closeBtn) closeBtn.addEventListener('click', closeModal);
-    if (scrim) scrim.addEventListener('click', closeModal);
+      try {
+        const createClient = window.supabase ? window.supabase.createClient : supabase.createClient;
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-    let activeCategory = 'todos';
-    const searchInput = document.getElementById('searchInput');
-    const visibleCount = document.getElementById('visibleCount');
+        // Guardar e ingresar datos pidiendo la respuesta (.select())
+        const { data, error } = await supabaseClient
+          .from('providers')
+          .insert([payload])
+          .select();
 
-    function applyFilters() {
-      const query = (searchInput?.value || '').toLowerCase().trim();
-      const cards = document.querySelectorAll('.card');
-      let shown = 0;
-      cards.forEach((card) => {
-        const title = card.getAttribute('data-title') || '';
-        const category = card.getAttribute('data-category') || '';
-        const matchText = !query || title.includes(query);
-        const matchCat = activeCategory === 'todos' || category === activeCategory;
-        const visible = matchText && matchCat;
-        card.style.display = visible ? 'flex' : 'none';
-        if (visible) shown += 1;
-      });
-      if (visibleCount) visibleCount.textContent = String(shown);
-    }
+        if (error) throw error;
 
-    if (searchInput) searchInput.addEventListener('input', applyFilters);
+        alert('¡Tu servicio ha sido publicado exitosamente!');
 
-    document.querySelectorAll('.chip').forEach((chip) => {
-      chip.addEventListener('click', () => {
-        document.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
-        chip.classList.add('active');
-        activeCategory = chip.dataset.category;
-        applyFilters();
-      });
-    });
+        // Crear pin en vivo en el mapa
+        const newService = (data && data.length > 0) ? data[0] : payload;
+        const icon = newService.category || '📍';
 
-    const registerForm = document.getElementById('registerForm');
-    if (registerForm) {
-      registerForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const consent = document.getElementById('regConsent').checked;
-        if (!consent) {
-          alert('Debes aceptar el consentimiento.');
-          return;
-        }
+        const newMarker = L.marker([newService.lat, newService.lng], { icon: pinIcon(icon) })
+          .addTo(map)
+          .bindPopup(popupHtml(newService));
 
-        const latVal = parseFloat(document.getElementById('regLat').value);
-        const lngVal = parseFloat(document.getElementById('regLng').value);
-        if (isNaN(latVal) || isNaN(lngVal)) {
-          alert('Marca tu ubicación en el mapa o usa el GPS.');
-          return;
-        }
+        markersByKey.set(`${newService.lat}|${newService.lng}`, { marker: newMarker, service: newService });
 
-        const submitBtn = document.getElementById('submitBtn');
-        submitBtn.innerText = 'Publicando…';
-        submitBtn.disabled = true;
+        // Enfocar mapa en el nuevo punto
+        map.flyTo([newService.lat, newService.lng], 15);
+        newMarker.openPopup();
 
-        const categorySelected = document.getElementById('regCategory').value;
+        // Limpiar y cerrar modal
+        registerForm.reset();
+        closeModal();
 
-        const payload = {
-          title: document.getElementById('regTitle').value,
-          category: categorySelected || '📍',
-          description: document.getElementById('regDesc').value,
-          phone: document.getElementById('regPhone').value,
-          lat: latVal,
-          lng: lngVal
-        };
-
-        try {
-          const createClient = window.supabase ? window.supabase.createClient : supabase.createClient;
-          const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-          const { error } = await supabaseClient.from('providers').insert([payload]);
-          if (error) throw error;
-
-          alert('Tu servicio ya está en el mapa de RedRural.');
+        // Recargar en segundo plano para sincronizar listas completas
+        setTimeout(() => {
           window.location.reload();
-        } catch (err) {
-          alert('No se pudo guardar: ' + err.message);
-          submitBtn.innerText = 'Confirmar y publicar';
-          submitBtn.disabled = false;
-        }
-      });
-    }
+        }, 1200);
+
+      } catch (err) {
+        alert('Error al guardar: ' + err.message);
+        submitBtn.innerText = 'Confirmar y publicar';
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+  // --- Buscador y Filtro por Categorías ---
+  const searchInput = document.getElementById('searchInput');
+  const chips = document.querySelectorAll('.chip');
+  let currentCategory = 'Todos';
+
+  function filterServices() {
+    const query = searchInput.value.toLowerCase();
+    const cards = document.querySelectorAll('.services-list .card');
+
+    cards.forEach(card => {
+      const title = card.getAttribute('data-title').toLowerCase();
+      const desc = card.getAttribute('data-desc').toLowerCase();
+      const cat = card.getAttribute('data-category');
+
+      const matchesSearch = title.includes(query) || desc.includes(query);
+      const matchesCategory = (currentCategory === 'Todos') || (cat === currentCategory);
+
+      if (matchesSearch && matchesCategory) {
+        card.style.display = 'flex';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+
+  if (searchInput) searchInput.addEventListener('input', filterServices);
+
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      chips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentCategory = chip.getAttribute('data-category');
+      filterServices();
+    });
   });
 </script>
 
 <style>
-:global(*) { box-sizing: border-box; }
-
-:global(body) {
-  margin: 0;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
-  background: #0b0b0c;
-  color: #0b0b0c;
-  overflow: hidden;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* LAYOUT PRINCIPAL */
-.app-layout {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
-  position: relative;
-}
-
-/* PANEL LATERAL EN PC */
-.sidebar {
-  width: 380px;
-  min-width: 380px;
-  height: 100%;
-  background: #ffffff;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  padding: 20px 18px 16px;
-  gap: 14px;
-  box-shadow: 4px 0 24px rgba(0,0,0,0.12);
-  position: relative;
-}
-
-.map-stage {
-  flex: 1;
-  height: 100%;
-  position: relative;
-}
-
-#map {
-  width: 100%;
-  height: 100%;
-  background: #dcdcdc;
-}
-
-.sheet-handle { display: none; }
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: #0b0b0c;
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-}
-
-.brand h1 {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 800;
-}
-
-.brand p {
-  margin: 2px 0 0;
-  font-size: 0.78rem;
-  color: #6b6b6b;
-}
-
-.search-wrap { position: relative; }
-
-.search-icon {
-  position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #6b6b6b;
-}
-
-.search-wrap input {
-  width: 100%;
-  height: 48px;
-  padding: 0 16px 0 46px;
-  border: 0;
-  border-radius: 24px;
-  background: #f3f3f3;
-  font-size: 0.9rem;
-  outline: none;
-  font-family: inherit;
-}
-
-.search-wrap input:focus {
-  box-shadow: 0 0 0 2px #0b0b0c;
-  background: #fff;
-}
-
-.chips {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.chips::-webkit-scrollbar { display: none; }
-
-.chip {
-  border: 0;
-  background: #ececec;
-  color: #0b0b0c;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  font-family: inherit;
-}
-
-.chip.active {
-  background: #0b0b0c;
-  color: #fff;
-}
-
-.list-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.list-head h2 { margin: 0; font-size: 0.95rem; }
-.list-head span { font-size: 0.75rem; font-weight: 700; color: #6b6b6b; }
-
-.services-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.card {
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  border: 0;
-  border-radius: 16px;
-  background: #f6f6f6;
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  width: 100%;
-}
-
-.card:hover,
-.card.is-active { background: #ececec; }
-.card.is-active { box-shadow: inset 0 0 0 2px #0b0b0c; }
-
-.card-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #0b0b0c;
-  display: grid;
-  place-items: center;
-  font-size: 1.2rem;
-  flex-shrink: 0;
-}
-
-.info { min-width: 0; flex: 1; }
-.info-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-.card h3 { margin: 0; font-size: 0.9rem; font-weight: 700; }
-.eta { font-size: 0.72rem; font-weight: 700; color: #06c167; white-space: nowrap; }
-.card p {
-  margin: 4px 0 0;
-  font-size: 0.78rem;
-  color: #5a5a5a;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.empty { padding: 32px 12px; text-align: center; color: #6b6b6b; }
-.empty-mark {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #0b0b0c;
-  color: #fff;
-  display: grid;
-  place-items: center;
-  margin: 0 auto 12px;
-  font-weight: 800;
-}
-
-.cta {
-  height: 48px;
-  border: 0;
-  border-radius: 12px;
-  background: #0b0b0c;
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.9rem;
-  cursor: pointer;
-  font-family: inherit;
-  flex-shrink: 0;
-}
-
-.fab {
-  position: absolute;
-  right: 16px;
-  bottom: 24px;
-  width: 48px;
-  height: 48px;
-  border: 0;
-  border-radius: 50%;
-  background: #fff;
-  color: #0b0b0c;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  z-index: 500;
-}
-
-:global(.leaflet-control-zoom) {
-  border: 0 !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.16) !important;
-  border-radius: 12px !important;
-  overflow: hidden;
-  margin-right: 16px !important;
-  margin-top: 16px !important;
-  z-index: 500 !important;
-}
-
-/* MODAL */
-.modal {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  display: none;
-  place-items: center;
-}
-.modal.is-open { display: grid; }
-.modal-scrim { position: absolute; inset: 0; background: rgba(11,11,12,0.55); }
-.modal-card {
-  position: relative;
-  width: min(460px, 92%);
-  max-height: 88vh;
-  overflow: auto;
-  background: #fff;
-  border-radius: 20px;
-  padding: 20px;
-  z-index: 1;
-}
-.modal-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
-.kicker { margin: 0; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #06c167; }
-.modal-card h2 { margin: 2px 0 0; font-size: 1.25rem; }
-.icon-btn { width: 32px; height: 32px; border: 0; border-radius: 50%; background: #f3f3f3; font-size: 1.2rem; cursor: pointer; }
-.form { display: flex; flex-direction: column; gap: 10px; }
-.form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; font-weight: 700; }
-.form input, .form select, .form textarea {
-  height: 44px; border: 0; border-radius: 10px; background: #f3f3f3; padding: 0 12px; font: inherit; font-size: 0.85rem; outline: none;
-}
-.form textarea { height: auto; padding: 10px; }
-.gps-box { background: #f6f6f6; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-.ghost { height: 38px; border: 0; border-radius: 8px; background: #0b0b0c; color: #fff; font-weight: 700; cursor: pointer; }
-.coords { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.coords input { background: #fff; }
-.consent { flex-direction: row !important; gap: 8px !important; font-weight: 500 !important; }
-
-/* MARCADO EN EL MAPA */
-:global(.rr-pin-wrap) { background: none !important; border: 0 !important; }
-:global(.rr-pin) {
-  width: 40px; height: 40px; border-radius: 50%; background: #0b0b0c; color: #fff; display: grid; place-items: center; box-shadow: 0 8px 18px rgba(0,0,0,0.28); border: 3px solid #fff; font-size: 16px;
-}
-:global(.rr-pin.is-on) { background: #06c167; }
-:global(.rr-popup .leaflet-popup-content-wrapper) { border-radius: 14px; padding: 0; box-shadow: 0 12px 32px rgba(0,0,0,0.2); }
-:global(.rr-popup .leaflet-popup-content) { margin: 0; width: 200px !important; }
-:global(.rr-pop) { padding: 12px; }
-:global(.rr-pop-kicker) { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6b6b6b; }
-:global(.rr-pop h3) { margin: 2px 0 4px; font-size: 14px; }
-:global(.rr-pop p) { margin: 0 0 8px; font-size: 12px; color: #555; }
-:global(.rr-wa) { display: block; text-align: center; background: #06c167; color: #fff !important; text-decoration: none; font-weight: 700; font-size: 12px; border-radius: 8px; padding: 8px; }
-
-/* REGLAS RESPONSIVAS PARA MÓVILES (< 768px) */
-@media (max-width: 768px) {
-  .app-layout { flex-direction: column-reverse; }
-  .sidebar {
-    width: 100%;
-    min-width: 100%;
-    height: 55vh;
-    border-radius: 20px 20px 0 0;
-    padding: 14px 14px 12px;
-    gap: 10px;
-    box-shadow: 0 -8px 24px rgba(0,0,0,0.12);
+  :root {
+    --bg-main: #faf9f5;
+    --primary: #1b4332;
+    --primary-hover: #2d6a4f;
+    --accent: #d97706;
+    --text-color: #2b2b2b;
+    --border-color: #e5e7eb;
+    --card-bg: #ffffff;
   }
-  .sheet-handle { display: block; width: 40px; height: 4px; background: #d6d6d6; border-radius: 99px; margin: 0 auto 2px; }
-  .map-stage { height: 45vh; }
-  .fab { bottom: 16px; right: 14px; }
-  .modal { place-items: end center; }
-  .modal-card { width: 100%; border-radius: 20px 20px 0 0; }
-}
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-color);
+    overflow: hidden;
+  }
+
+  .app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 380px;
+    background: var(--card-bg);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+  }
+
+  .header {
+    padding: 20px;
+    background-color: var(--primary);
+    color: white;
+  }
+
+  .header h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  .header p {
+    font-size: 0.85rem;
+    opacity: 0.9;
+  }
+
+  .search-box {
+    padding: 15px 20px 5px 20px;
+  }
+
+  .search-box input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    outline: none;
+  }
+
+  .search-box input:focus {
+    border-color: var(--primary);
+  }
+
+  .categories {
+    display: flex;
+    gap: 8px;
+    padding: 10px 20px;
+    overflow-x: auto;
+  }
+
+  .chip {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    background: #f3f4f6;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .chip.active, .chip:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .services-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+
+  .card .icon {
+    font-size: 1.5rem;
+  }
+
+  .card .info h3 {
+    font-size: 0.95rem;
+    color: var(--primary);
+    margin-bottom: 4px;
+  }
+
+  .card .info p {
+    font-size: 0.82rem;
+    color: #555;
+    margin-bottom: 6px;
+  }
+
+  .card .info .phone {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .btn-publish {
+    margin: 15px 20px;
+    padding: 12px;
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .btn-publish:hover {
+    background-color: var(--primary-hover);
+  }
+
+  /* Mapa */
+  .map-container {
+    flex: 1;
+    height: 100%;
+  }
+
+  #map {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Marcadores Leaflet */
+  .custom-pin {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pin-bubble {
+    background: white;
+    border: 2px solid var(--primary);
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+
+  .popup-card h3 {
+    font-size: 1rem;
+    color: var(--primary);
+    margin-bottom: 4px;
+  }
+
+  .popup-card p {
+    font-size: 0.85rem;
+    color: #444;
+  }
+
+  .popup-phone {
+    margin-top: 6px;
+    color: var(--accent);
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .modal-content {
+    background: white;
+    width: 90%;
+    max-width: 460px;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .modal-header h2 {
+    font-size: 1.2rem;
+    color: var(--primary);
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #888;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .form-group label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #444;
+  }
+
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.88rem;
+    outline: none;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .form-row .form-group {
+    flex: 1;
+  }
+
+  .map-instruction {
+    font-size: 0.78rem;
+    color: #666;
+    margin-bottom: 12px;
+    background: #f0fdf4;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #bbf7d0;
+  }
+
+  .form-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    margin-bottom: 16px;
+  }
+
+  .btn-submit {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-submit:hover {
+    background-color: var(--primary-hover);
+  }
+
+  @media (max-width: 768px) {
+    .app-container {
+      flex-direction: column-reverse;
+    }
+    .sidebar {
+      width: 100%;
+      height: 45vh;
+    }
+    .map-container {
+      height: 55vh;
+    }
+  }
 </style>
