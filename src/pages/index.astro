@@ -185,9 +185,10 @@ const serviceCount = providers?.length ?? 0;
     let activeCard = null;
 
     function pinIcon(emoji, selected) {
+      const iconSymbol = emoji && emoji.trim() !== '' ? emoji : '📍';
       return L.divIcon({
         className: 'rr-pin-wrap',
-        html: `<div class="rr-pin${selected ? ' is-on' : ''}"><span>${emoji || '📍'}</span></div>`,
+        html: `<div class="rr-pin${selected ? ' is-on' : ''}"><span>${iconSymbol}</span></div>`,
         iconSize: [44, 52],
         iconAnchor: [22, 46],
         popupAnchor: [0, -40]
@@ -362,9 +363,11 @@ const serviceCount = providers?.length ?? 0;
         submitBtn.innerText = 'Publicando…';
         submitBtn.disabled = true;
 
+        const categorySelected = document.getElementById('regCategory').value;
+
         const payload = {
           title: document.getElementById('regTitle').value,
-          category: document.getElementById('regCategory').value,
+          category: categorySelected || '📍',
           description: document.getElementById('regDesc').value,
           phone: document.getElementById('regPhone').value,
           lat: latVal,
