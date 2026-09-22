@@ -110,8 +110,13 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
             <input type="number" step="any" id="regLng" required readonly />
           </div>
         </div>
-        
-        <p class="map-instruction">💡 Haz clic en el mapa para marcar la ubicación exacta de tu servicio.</p>
+
+        <!-- Botón de Geolocalización por GPS -->
+        <button type="button" id="btnGeolocate" class="btn-geo">
+          🎯 Obtener mi ubicación actual (GPS)
+        </button>
+
+        <p class="map-instruction">💡 Haz clic en el mapa o usa el botón de GPS para marcar tu ubicación exacta.</p>
 
         <div class="form-checkbox">
           <input type="checkbox" id="regConsent" required />
@@ -134,10 +139,10 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   const defaultLng = -72.9365;
   const map = L.map('map').setView([defaultLat, defaultLng], 12);
 
-  // Capa 100% Gratuita y sin marcas de agua de OpenStreetMap
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  // Capa de mapa limpia sin marcas de agua (Esri WorldTopoMap)
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), swisstopo, MapmyIndia, &#169; OpenStreetMap contributors, and the GIS User Community'
   }).addTo(map);
 
   const markersByKey = new Map();
@@ -220,6 +225,50 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     }
   });
 
+  // --- Geolocalización por GPS ---
+  const btnGeolocate = document.getElementById('btnGeolocate');
+  if (btnGeolocate) {
+    btnGeolocate.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        alert('Tu navegador no soporta la función de geolocalización.');
+        return;
+      }
+
+      btnGeolocate.innerText = 'Buscando señal GPS…';
+      btnGeolocate.disabled = true;
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+
+          document.getElementById('regLat').value = latitude.toFixed(6);
+          document.getElementById('regLng').value = longitude.toFixed(6);
+
+          if (tempMarker) {
+            tempMarker.setLatLng([latitude, longitude]);
+          } else {
+            tempMarker = L.marker([latitude, longitude], { icon: pinIcon('📍') }).addTo(map);
+          }
+
+          map.flyTo([latitude, longitude], 16);
+
+          btnGeolocate.innerText = '🎯 Obtener mi ubicación actual (GPS)';
+          btnGeolocate.disabled = false;
+        },
+        (error) => {
+          let msg = 'No se pudo obtener la ubicación.';
+          if (error.code === error.PERMISSION_DENIED) {
+            msg = 'Permiso denegado. Por favor autoriza el uso del GPS en tu navegador.';
+          }
+          alert(msg);
+          btnGeolocate.innerText = '🎯 Obtener mi ubicación actual (GPS)';
+          btnGeolocate.disabled = false;
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+  }
+
   // --- Envío del Formulario a Supabase con Actualización en Vivo ---
   const registerForm = document.getElementById('registerForm');
   if (registerForm) {
@@ -235,7 +284,7 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       const latVal = parseFloat(document.getElementById('regLat').value);
       const lngVal = parseFloat(document.getElementById('regLng').value);
       if (isNaN(latVal) || isNaN(lngVal)) {
-        alert('Por favor haz clic en el mapa para marcar la ubicación exacta de tu servicio.');
+        alert('Por favor marca la ubicación exacta en el mapa o usa la ubicación GPS.');
         return;
       }
 
@@ -258,7 +307,6 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
         const createClient = window.supabase ? window.supabase.createClient : supabase.createClient;
         const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-        // Guardar en Supabase pidiendo el objeto creado
         const { data, error } = await supabaseClient
           .from('providers')
           .insert([payload])
@@ -268,7 +316,6 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 
         alert('¡Tu servicio ha sido publicado exitosamente!');
 
-        // Renderizar pin inmediatamente en el mapa sin esperar la recarga
         const newService = (data && data.length > 0) ? data[0] : payload;
         const icon = newService.category || '📍';
 
@@ -278,15 +325,12 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 
         markersByKey.set(`${newService.lat}|${newService.lng}`, { marker: newMarker, service: newService });
 
-        // Enfocar mapa en el nuevo servicio recién creado
         map.flyTo([newService.lat, newService.lng], 15);
         newMarker.openPopup();
 
-        // Limpiar formulario y ocultar modal
         registerForm.reset();
         closeModal();
 
-        // Recargar suavemente en segundo plano para sincronizar
         setTimeout(() => {
           window.location.reload();
         }, 1200);
@@ -622,6 +666,24 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 
   .form-row .form-group {
     flex: 1;
+  }
+
+  .btn-geo {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 10px;
+    transition: background 0.2s;
+  }
+
+  .btn-geo:hover {
+    background-color: #bae6fd;
   }
 
   .map-instruction {
