@@ -16,165 +16,170 @@ const serviceCount = providers?.length ?? 0;
 <Layout title="RedRural — Los Muermos">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-<div class="app">
-<main class="map-stage">
-<div id="map"></div>
-<div class="map-veil"></div>
+<div class="app-layout">
+  <!-- PANEL LATERAL IZQUIERDO EN PC / INFERIOR EN MÓVIL -->
+  <aside class="sidebar">
+    <div class="sheet-handle" aria-hidden="true"></div>
 
-<button class="fab locate" id="locateBtn" type="button" aria-label="Mi ubicación">
-<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-<circle cx="12" cy="12" r="3" fill="currentColor" />
-<path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-</svg>
-</button>
-</main>
+    <header class="brand-bar">
+      <div class="brand">
+        <div class="mark">R</div>
+        <div>
+          <h1>RedRural</h1>
+          <p>Los Muermos · {serviceCount} {serviceCount === 1 ? 'servicio' : 'servicios'}</p>
+        </div>
+      </div>
+    </header>
 
-<aside class="sheet" id="sheet">
-<div class="sheet-handle" aria-hidden="true"></div>
+    <div class="search-wrap">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
+        <path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      </svg>
+      <input type="text" id="searchInput" placeholder="¿Qué necesitas? Leña, flete, miel..." autocomplete="off" />
+    </div>
 
-<header class="brand-bar">
-<div class="brand">
-<div class="mark">R</div>
-<div>
-<h1>RedRural</h1>
-<p>Los Muermos · {serviceCount} {serviceCount === 1 ? 'servicio' : 'servicios'}</p>
-</div>
-</div>
-</header>
+    <div class="chips" id="categoryFilters" role="tablist">
+      <button class="chip active" data-category="todos" type="button">Todos</button>
+      <button class="chip" data-category="🪚" type="button">Oficios</button>
+      <button class="chip" data-category="🍯" type="button">Productos</button>
+      <button class="chip" data-category="🥾" type="button">Turismo</button>
+      <button class="chip" data-category="🚜" type="button">Maquinaria</button>
+    </div>
 
-<div class="search-wrap">
-<svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-<circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
-<path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-</svg>
-<input type="text" id="searchInput" placeholder="¿Qué necesitas? Leña, flete, miel..." autocomplete="off" />
-</div>
+    <div class="list-head">
+      <h2>Cerca de ti</h2>
+      <span id="visibleCount">{serviceCount}</span>
+    </div>
 
-<div class="chips" id="categoryFilters" role="tablist">
-<button class="chip active" data-category="todos" type="button">Todos</button>
-<button class="chip" data-category="🪚" type="button">Oficios</button>
-<button class="chip" data-category="🍯" type="button">Productos</button>
-<button class="chip" data-category="🥾" type="button">Turismo</button>
-<button class="chip" data-category="🚜" type="button">Maquinaria</button>
-</div>
+    <div class="services-list" id="servicesList">
+      {providers && providers.length > 0 ? (
+        providers.map((item) => {
+          const icon = item.category || item.category_icon || '📍';
+          const description = item.description || item.desc || 'Sin descripción disponible.';
+          return (
+            <button
+              type="button"
+              class="card"
+              data-category={icon}
+              data-title={item.title ? item.title.toLowerCase() : ''}
+              data-sector={item.sector ? item.sector.toLowerCase() : ''}
+              data-lat={item.lat ?? ''}
+              data-lng={item.lng ?? ''}
+            >
+              <div class="card-icon">{icon}</div>
+              <div class="info">
+                <div class="info-top">
+                  <h3>{item.title}</h3>
+                  <span class="eta">Ver mapa</span>
+                </div>
+                <p>{description}</p>
+                <span class="meta">📍 {item.sector || 'Sector rural'}</span>
+              </div>
+            </button>
+          );
+        })
+      ) : (
+        <div class="empty">
+          <div class="empty-mark">R</div>
+          <p>Aún no hay servicios publicados.</p>
+          <span>Sé el primero en registrar tu oficio.</span>
+        </div>
+      )}
+    </div>
 
-<div class="list-head">
-<h2>Cerca de ti</h2>
-<span id="visibleCount">{serviceCount}</span>
-</div>
+    <button class="cta" id="openModalBtn" type="button">+ Registrar mi servicio</button>
+  </aside>
 
-<div class="services-list" id="servicesList">
-{providers && providers.length > 0 ? (
-providers.map((item) => (
-<button
-type="button"
-class="card"
-data-category={item.category || '📍'}
-data-title={item.title ? item.title.toLowerCase() : ''}
-data-sector={item.sector ? item.sector.toLowerCase() : ''}
-data-lat={item.lat ?? ''}
-data-lng={item.lng ?? ''}
->
-<div class="card-icon">{item.category || '📍'}</div>
-<div class="info">
-<div class="info-top">
-<h3>{item.title}</h3>
-<span class="eta">Ver mapa</span>
-</div>
-<p>{item.description || 'Sin descripción disponible.'}</p>
-<span class="meta">{item.sector || 'Sector rural'}</span>
-</div>
-</button>
-))
-) : (
-<div class="empty">
-<div class="empty-mark">R</div>
-<p>Aún no hay servicios publicados.</p>
-<span>Sé el primero en registrar tu oficio.</span>
-</div>
-)}
-</div>
-
-<button class="cta" id="openModalBtn" type="button">Registrar mi servicio</button>
-</aside>
+  <!-- CONTENEDOR DEL MAPA -->
+  <main class="map-stage">
+    <div id="map"></div>
+    <button class="fab locate" id="locateBtn" type="button" aria-label="Mi ubicación">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="3" fill="currentColor" />
+        <path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      </svg>
+    </button>
+  </main>
 </div>
 
+<!-- MODAL REGISTRO -->
 <div id="registerModal" class="modal" aria-hidden="true">
-<div class="modal-scrim" id="modalScrim"></div>
-<div class="modal-card" role="dialog" aria-labelledby="modalTitle">
-<div class="modal-top">
-<div>
-<p class="kicker">Publicar</p>
-<h2 id="modalTitle">Tu servicio en el mapa</h2>
-</div>
-<button id="closeModalBtn" class="icon-btn" type="button" aria-label="Cerrar">&times;</button>
-</div>
+  <div class="modal-scrim" id="modalScrim"></div>
+  <div class="modal-card" role="dialog" aria-labelledby="modalTitle">
+    <div class="modal-top">
+      <div>
+        <p class="kicker">Publicar</p>
+        <h2 id="modalTitle">Tu servicio en el mapa</h2>
+      </div>
+      <button id="closeModalBtn" class="icon-btn" type="button" aria-label="Cerrar">&times;</button>
+    </div>
 
-<form id="registerForm" class="form">
-<label>
-Nombre del servicio o prestador
-<input type="text" id="regTitle" placeholder="Ej: Don Pedro Carpintería" required />
-</label>
+    <form id="registerForm" class="form">
+      <label>
+        Nombre del servicio o prestador
+        <input type="text" id="regTitle" placeholder="Ej: Don Pedro Carpintería" required />
+      </label>
 
-<label>
-Categoría
-<select id="regCategory">
-<option value="🪚">Oficio / Trabajo</option>
-<option value="🍯">Producto / Venta local</option>
-<option value="🥾">Turismo / Hospedaje</option>
-<option value="🚜">Maquinaria / Transporte</option>
-<option value="📍">Otro</option>
-</select>
-</label>
+      <label>
+        Categoría
+        <select id="regCategory">
+          <option value="🪚">Oficio / Trabajo</option>
+          <option value="🍯">Producto / Venta local</option>
+          <option value="🥾">Turismo / Hospedaje</option>
+          <option value="🚜">Maquinaria / Transporte</option>
+          <option value="📍">Otro</option>
+        </select>
+      </label>
 
-<label>
-Sector
-<select id="regSector" required>
-<option value="" disabled selected>Elige tu sector</option>
-<option value="El Melí">El Melí</option>
-<option value="San Carlos">San Carlos</option>
-<option value="Cordillera Vieja">Cordillera Vieja</option>
-<option value="Hua Huar">Hua Huar</option>
-<option value="Los Piques">Los Piques</option>
-<option value="Esperanza">Esperanza</option>
-<option value="Tambor Bajo">Tambor Bajo</option>
-<option value="Miramar Bajo">Miramar Bajo</option>
-<option value="Estaquilla">Estaquilla</option>
-<option value="Los Muermos Centro">Los Muermos Centro</option>
-<option value="Otro">Otro sector</option>
-</select>
-</label>
+      <label>
+        Sector
+        <select id="regSector" required>
+          <option value="" disabled selected>Elige tu sector</option>
+          <option value="El Melí">El Melí</option>
+          <option value="San Carlos">San Carlos</option>
+          <option value="Cordillera Vieja">Cordillera Vieja</option>
+          <option value="Hua Huar">Hua Huar</option>
+          <option value="Los Piques">Los Piques</option>
+          <option value="Esperanza">Esperanza</option>
+          <option value="Tambor Bajo">Tambor Bajo</option>
+          <option value="Miramar Bajo">Miramar Bajo</option>
+          <option value="Estaquilla">Estaquilla</option>
+          <option value="Los Muermos Centro">Los Muermos Centro</option>
+          <option value="Otro">Otro sector</option>
+        </select>
+      </label>
 
-<label>
-Qué ofreces
-<textarea id="regDesc" rows="2" placeholder="Miel de ulmo, fletes, leña seca..."></textarea>
-</label>
+      <label>
+        Qué ofreces
+        <textarea id="regDesc" rows="2" placeholder="Miel de ulmo, fletes, leña seca..."></textarea>
+      </label>
 
-<label>
-WhatsApp
-<input type="tel" id="regPhone" placeholder="+56 9 1234 5678" required />
-</label>
+      <label>
+        WhatsApp
+        <input type="tel" id="regPhone" placeholder="+56 9 1234 5678" required />
+      </label>
 
-<div class="gps-box">
-<div>
-<strong>Punto en el mapa</strong>
-<p>Toca el mapa o usa tu GPS.</p>
-</div>
-<button type="button" id="btnGps" class="ghost">Usar mi ubicación</button>
-<div class="coords">
-<input type="text" id="regLat" placeholder="Latitud" readonly required />
-<input type="text" id="regLng" placeholder="Longitud" readonly required />
-</div>
-</div>
+      <div class="gps-box">
+        <div>
+          <strong>Punto en el mapa</strong>
+          <p>Toca el mapa o usa tu GPS.</p>
+        </div>
+        <button type="button" id="btnGps" class="ghost">Usar mi ubicación</button>
+        <div class="coords">
+          <input type="text" id="regLat" placeholder="Latitud" readonly required />
+          <input type="text" id="regLng" placeholder="Longitud" readonly required />
+        </div>
+      </div>
 
-<label class="consent">
-<input type="checkbox" id="regConsent" required />
-<span>Autorizo publicar mi teléfono y posición en el mapa público de RedRural.</span>
-</label>
+      <label class="consent">
+        <input type="checkbox" id="regConsent" required />
+        <span>Autorizo publicar mi teléfono y posición en el mapa público de RedRural.</span>
+      </label>
 
-<button type="submit" id="submitBtn" class="cta">Confirmar y publicar</button>
-</form>
-</div>
+      <button type="submit" id="submitBtn" class="cta">Confirmar y publicar</button>
+    </form>
+  </div>
 </div>
 </Layout>
 
@@ -192,7 +197,7 @@ WhatsApp
       attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    L.control.zoom({ position: 'topright' }).addTo(map);
     setTimeout(() => map.invalidateSize(), 250);
 
     let tempMarker = null;
@@ -210,12 +215,13 @@ WhatsApp
     }
 
     function popupHtml(service) {
-      const desc = service.description || 'Sin descripción';
+      const icon = service.category || service.category_icon || '📍';
+      const desc = service.description || service.desc || 'Sin descripción';
       const sector = service.sector || 'Sector rural';
       const phone = (service.phone || '').replace(/\D/g, '');
       return `
         <div class="rr-pop">
-          <div class="rr-pop-kicker">${service.category || '📍'} ${sector}</div>
+          <div class="rr-pop-kicker">${icon} ${sector}</div>
           <h3>${service.title}</h3>
           <p>${desc}</p>
           ${phone ? `<a class="rr-wa" href="https://wa.me/${phone}" target="_blank" rel="noopener">Contactar por WhatsApp</a>` : ''}
@@ -226,7 +232,8 @@ WhatsApp
     if (providers && Array.isArray(providers)) {
       providers.forEach((service) => {
         if (service.lat && service.lng) {
-          const marker = L.marker([service.lat, service.lng], { icon: pinIcon(service.category, false) })
+          const icon = service.category || service.category_icon || '📍';
+          const marker = L.marker([service.lat, service.lng], { icon: pinIcon(icon, false) })
             .addTo(map)
             .bindPopup(popupHtml(service), { className: 'rr-popup' });
           markersByKey.set(`${service.lat}|${service.lng}`, { marker, service });
@@ -278,28 +285,6 @@ WhatsApp
     const locateBtn = document.getElementById('locateBtn');
     const btnGps = document.getElementById('btnGps');
 
-    function useGps(button, labelReady) {
-      if (!('geolocation' in navigator)) {
-        alert('Tu navegador no soporta geolocalización.');
-        return;
-      }
-      const original = button.innerText;
-      button.innerText = 'Buscando…';
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const { latitude, longitude } = pos.coords;
-          setCoordinates(latitude, longitude);
-          map.flyTo([latitude, longitude], 15);
-          button.innerText = labelReady || original;
-        },
-        () => {
-          alert('No se pudo obtener la ubicación. Toca el mapa para marcar el punto.');
-          button.innerText = original;
-        },
-        { enableHighAccuracy: true }
-      );
-    }
-
     if (locateBtn) {
       locateBtn.addEventListener('click', () => {
         if (!('geolocation' in navigator)) return;
@@ -311,7 +296,21 @@ WhatsApp
     }
 
     if (btnGps) {
-      btnGps.addEventListener('click', () => useGps(btnGps, 'Ubicación lista'));
+      btnGps.addEventListener('click', () => {
+        if (!('geolocation' in navigator)) return;
+        btnGps.innerText = 'Buscando…';
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setCoordinates(pos.coords.latitude, pos.coords.longitude);
+            map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
+            btnGps.innerText = 'Ubicación lista';
+          },
+          () => {
+            alert('No se pudo obtener la ubicación.');
+            btnGps.innerText = 'Usar mi ubicación';
+          }
+        );
+      });
     }
 
     const modal = document.getElementById('registerModal');
@@ -370,7 +369,7 @@ WhatsApp
         e.preventDefault();
         const consent = document.getElementById('regConsent').checked;
         if (!consent) {
-          alert('Debes aceptar el consentimiento para publicar tus datos.');
+          alert('Debes aceptar el consentimiento.');
           return;
         }
 
@@ -387,9 +386,9 @@ WhatsApp
 
         const payload = {
           title: document.getElementById('regTitle').value,
-          category: document.getElementById('regCategory').value,
+          category_icon: document.getElementById('regCategory').value,
           sector: document.getElementById('regSector').value,
-          description: document.getElementById('regDesc').value,
+          desc: document.getElementById('regDesc').value,
           phone: document.getElementById('regPhone').value,
           lat: latVal,
           lng: lngVal
@@ -417,536 +416,314 @@ WhatsApp
 :global(*) { box-sizing: border-box; }
 
 :global(body) {
-margin: 0;
-font-family: Inter, system-ui, -apple-system, sans-serif;
-background: #0b0b0c;
-color: #0b0b0c;
--webkit-font-smoothing: antialiased;
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  background: #0b0b0c;
+  color: #0b0b0c;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-.app {
-position: relative;
-height: 100vh;
-height: 100dvh;
-overflow: hidden;
-display: flex;
+/* LAYOUT PRINCIPAL */
+.app-layout {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  position: relative;
+}
+
+/* PANEL LATERAL EN PC */
+.sidebar {
+  width: 380px;
+  min-width: 380px;
+  height: 100%;
+  background: #ffffff;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 18px 16px;
+  gap: 14px;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.12);
+  position: relative;
 }
 
 .map-stage {
-position: absolute;
-inset: 0;
-z-index: 1;
+  flex: 1;
+  height: 100%;
+  position: relative;
 }
 
 #map {
-width: 100%;
-height: 100%;
-background: #dcdcdc;
+  width: 100%;
+  height: 100%;
+  background: #dcdcdc;
 }
 
-:global(.leaflet-tile-pane) {
-filter: grayscale(0.4) saturate(0.65) contrast(1.08);
-}
-
-.map-veil {
-pointer-events: none;
-position: absolute;
-inset: 0;
-background: linear-gradient(180deg, rgba(11,11,12,0.06) 0%, transparent 18%, transparent 82%, rgba(11,11,12,0.08) 100%);
-}
-
-.fab {
-position: absolute;
-right: 16px;
-bottom: 88px;
-width: 48px;
-height: 48px;
-border: 0;
-border-radius: 50%;
-background: #fff;
-color: #0b0b0c;
-box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-cursor: pointer;
-display: grid;
-place-items: center;
-z-index: 500;
-}
-
-:global(.leaflet-control-zoom) {
-border: 0 !important;
-box-shadow: 0 8px 24px rgba(0,0,0,0.16) !important;
-border-radius: 12px !important;
-overflow: hidden;
-margin-right: 16px !important;
-margin-bottom: 24px !important;
-z-index: 500 !important;
-}
-
-:global(.leaflet-control-zoom a) {
-width: 40px !important;
-height: 40px !important;
-line-height: 40px !important;
-color: #0b0b0c !important;
-border: 0 !important;
-font-size: 18px !important;
-}
-
-.sheet {
-position: absolute;
-left: 16px;
-top: 16px;
-bottom: 16px;
-width: 400px;
-background: #fff;
-display: flex;
-flex-direction: column;
-padding: 20px 18px 16px;
-gap: 14px;
-z-index: 1000;
-border-radius: 24px;
-box-shadow: 0 16px 48px rgba(0,0,0,0.18);
-}
-
-.sheet-handle {
-display: none;
-width: 44px;
-height: 5px;
-border-radius: 99px;
-background: #d6d6d6;
-margin: 0 auto 4px;
-}
+.sheet-handle { display: none; }
 
 .brand {
-display: flex;
-align-items: center;
-gap: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .mark {
-width: 42px;
-height: 42px;
-border-radius: 50%;
-background: #0b0b0c;
-color: #fff;
-display: grid;
-place-items: center;
-font-weight: 800;
-letter-spacing: -0.04em;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #0b0b0c;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
 }
 
 .brand h1 {
-margin: 0;
-font-size: 1.2rem;
-letter-spacing: -0.04em;
-font-weight: 800;
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
 }
 
 .brand p {
-margin: 2px 0 0;
-font-size: 0.78rem;
-color: #6b6b6b;
-font-weight: 500;
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: #6b6b6b;
 }
 
-.search-wrap {
-position: relative;
-}
+.search-wrap { position: relative; }
 
 .search-icon {
-position: absolute;
-left: 16px;
-top: 50%;
-transform: translateY(-50%);
-color: #6b6b6b;
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b6b6b;
 }
 
 .search-wrap input {
-width: 100%;
-height: 54px;
-padding: 0 16px 0 46px;
-border: 0;
-border-radius: 28px;
-background: #f3f3f3;
-font-size: 0.95rem;
-outline: none;
-font-family: inherit;
+  width: 100%;
+  height: 48px;
+  padding: 0 16px 0 46px;
+  border: 0;
+  border-radius: 24px;
+  background: #f3f3f3;
+  font-size: 0.9rem;
+  outline: none;
+  font-family: inherit;
 }
 
 .search-wrap input:focus {
-box-shadow: 0 0 0 2px #0b0b0c;
-background: #fff;
+  box-shadow: 0 0 0 2px #0b0b0c;
+  background: #fff;
 }
 
 .chips {
-display: flex;
-gap: 8px;
-overflow-x: auto;
-scrollbar-width: none;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-
 .chips::-webkit-scrollbar { display: none; }
 
 .chip {
-border: 0;
-background: #ececec;
-color: #0b0b0c;
-padding: 9px 14px;
-border-radius: 999px;
-font-size: 0.8rem;
-font-weight: 600;
-cursor: pointer;
-white-space: nowrap;
-font-family: inherit;
-flex-shrink: 0;
+  border: 0;
+  background: #ececec;
+  color: #0b0b0c;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
 }
 
 .chip.active {
-background: #0b0b0c;
-color: #fff;
-}
-
-.brand-bar,
-.search-wrap,
-.chips,
-.list-head,
-.cta {
-flex-shrink: 0;
+  background: #0b0b0c;
+  color: #fff;
 }
 
 .list-head {
-display: flex;
-justify-content: space-between;
-align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
 }
 
-.list-head h2 {
-margin: 0;
-font-size: 0.95rem;
-letter-spacing: -0.03em;
-}
-
-.list-head span {
-font-size: 0.75rem;
-font-weight: 700;
-color: #6b6b6b;
-}
+.list-head h2 { margin: 0; font-size: 0.95rem; }
+.list-head span { font-size: 0.75rem; font-weight: 700; color: #6b6b6b; }
 
 .services-list {
-flex: 1;
-min-height: 0;
-overflow-y: auto;
-display: flex;
-flex-direction: column;
-gap: 8px;
-padding-right: 2px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .card {
-display: flex;
-gap: 12px;
-padding: 12px;
-border: 0;
-border-radius: 16px;
-background: #f6f6f6;
-cursor: pointer;
-text-align: left;
-font-family: inherit;
-width: 100%;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 0;
+  border-radius: 16px;
+  background: #f6f6f6;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  width: 100%;
 }
 
 .card:hover,
-.card.is-active {
-background: #ececec;
-}
-
-.card.is-active {
-box-shadow: inset 0 0 0 2px #0b0b0c;
-}
+.card.is-active { background: #ececec; }
+.card.is-active { box-shadow: inset 0 0 0 2px #0b0b0c; }
 
 .card-icon {
-width: 48px;
-height: 48px;
-border-radius: 50%;
-background: #0b0b0c;
-display: grid;
-place-items: center;
-font-size: 1.25rem;
-flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #0b0b0c;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
 }
 
 .info { min-width: 0; flex: 1; }
-
-.info-top {
-display: flex;
-justify-content: space-between;
-gap: 8px;
-align-items: baseline;
-}
-
-.card h3 {
-margin: 0;
-font-size: 0.95rem;
-letter-spacing: -0.03em;
-font-weight: 700;
-}
-
-.eta {
-font-size: 0.72rem;
-font-weight: 700;
-color: #06c167;
-white-space: nowrap;
-}
-
+.info-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.card h3 { margin: 0; font-size: 0.9rem; font-weight: 700; }
+.eta { font-size: 0.72rem; font-weight: 700; color: #06c167; white-space: nowrap; }
 .card p {
-margin: 4px 0 6px;
-font-size: 0.8rem;
-color: #5a5a5a;
-line-height: 1.35;
-display: -webkit-box;
--webkit-line-clamp: 2;
--webkit-box-orient: vertical;
-overflow: hidden;
+  margin: 4px 0 6px;
+  font-size: 0.78rem;
+  color: #5a5a5a;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
+.meta { font-size: 0.72rem; font-weight: 600; color: #8a8a8a; }
 
-.meta {
-font-size: 0.72rem;
-font-weight: 600;
-color: #8a8a8a;
-text-transform: uppercase;
-letter-spacing: 0.04em;
-}
-
-.empty {
-padding: 32px 12px;
-text-align: center;
-color: #6b6b6b;
-}
-
+.empty { padding: 32px 12px; text-align: center; color: #6b6b6b; }
 .empty-mark {
-width: 48px;
-height: 48px;
-border-radius: 50%;
-background: #0b0b0c;
-color: #fff;
-display: grid;
-place-items: center;
-margin: 0 auto 12px;
-font-weight: 800;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #0b0b0c;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 12px;
+  font-weight: 800;
 }
-
-.empty p { margin: 0 0 4px; font-weight: 700; color: #0b0b0c; }
-.empty span { font-size: 0.8rem; }
 
 .cta {
-height: 52px;
-border: 0;
-border-radius: 12px;
-background: #0b0b0c;
-color: #fff;
-font-weight: 700;
-font-size: 0.95rem;
-cursor: pointer;
-font-family: inherit;
+  height: 48px;
+  border: 0;
+  border-radius: 12px;
+  background: #0b0b0c;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
 }
 
-.cta:disabled { opacity: 0.55; }
+.fab {
+  position: absolute;
+  right: 16px;
+  bottom: 24px;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #0b0b0c;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  z-index: 500;
+}
 
+:global(.leaflet-control-zoom) {
+  border: 0 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.16) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  margin-right: 16px !important;
+  margin-top: 16px !important;
+  z-index: 500 !important;
+}
+
+/* MODAL */
 .modal {
-position: fixed;
-inset: 0;
-z-index: 3000;
-display: none;
-place-items: end center;
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: none;
+  place-items: center;
 }
-
 .modal.is-open { display: grid; }
-
-.modal-scrim {
-position: absolute;
-inset: 0;
-background: rgba(11,11,12,0.55);
-}
-
+.modal-scrim { position: absolute; inset: 0; background: rgba(11,11,12,0.55); }
 .modal-card {
-position: relative;
-width: min(480px, 100%);
-max-height: 92vh;
-overflow: auto;
-background: #fff;
-border-radius: 24px 24px 0 0;
-padding: 22px 20px 28px;
-z-index: 1;
+  position: relative;
+  width: min(460px, 92%);
+  max-height: 88vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px;
+  z-index: 1;
 }
-
-.modal-top {
-display: flex;
-justify-content: space-between;
-align-items: flex-start;
-margin-bottom: 16px;
+.modal-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.kicker { margin: 0; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #06c167; }
+.modal-card h2 { margin: 2px 0 0; font-size: 1.25rem; }
+.icon-btn { width: 32px; height: 32px; border: 0; border-radius: 50%; background: #f3f3f3; font-size: 1.2rem; cursor: pointer; }
+.form { display: flex; flex-direction: column; gap: 10px; }
+.form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; font-weight: 700; }
+.form input, .form select, .form textarea {
+  height: 44px; border: 0; border-radius: 10px; background: #f3f3f3; padding: 0 12px; font: inherit; font-size: 0.85rem; outline: none;
 }
-
-.kicker {
-margin: 0;
-font-size: 0.72rem;
-font-weight: 700;
-letter-spacing: 0.08em;
-text-transform: uppercase;
-color: #06c167;
-}
-
-.modal-card h2 {
-margin: 4px 0 0;
-font-size: 1.35rem;
-letter-spacing: -0.04em;
-}
-
-.icon-btn {
-width: 36px;
-height: 36px;
-border: 0;
-border-radius: 50%;
-background: #f3f3f3;
-font-size: 1.4rem;
-cursor: pointer;
-line-height: 1;
-}
-
-.form {
-display: flex;
-flex-direction: column;
-gap: 12px;
-}
-
-.form label {
-display: flex;
-flex-direction: column;
-gap: 6px;
-font-size: 0.75rem;
-font-weight: 700;
-color: #3a3a3a;
-}
-
-.form input,
-.form select,
-.form textarea {
-height: 48px;
-border: 0;
-border-radius: 12px;
-background: #f3f3f3;
-padding: 0 14px;
-font: inherit;
-font-size: 0.9rem;
-font-weight: 500;
-outline: none;
-}
-
-.form textarea { height: auto; padding: 12px 14px; resize: vertical; }
-
-.form input:focus,
-.form select:focus,
-.form textarea:focus {
-box-shadow: 0 0 0 2px #0b0b0c;
-background: #fff;
-}
-
-.gps-box {
-background: #f6f6f6;
-border-radius: 16px;
-padding: 14px;
-display: flex;
-flex-direction: column;
-gap: 10px;
-}
-
-.gps-box strong { font-size: 0.85rem; }
-.gps-box p { margin: 2px 0 0; font-size: 0.75rem; color: #6b6b6b; }
-
-.ghost {
-height: 42px;
-border: 0;
-border-radius: 10px;
-background: #0b0b0c;
-color: #fff;
-font-weight: 700;
-font-family: inherit;
-cursor: pointer;
-}
-
+.form textarea { height: auto; padding: 10px; }
+.gps-box { background: #f6f6f6; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.ghost { height: 38px; border: 0; border-radius: 8px; background: #0b0b0c; color: #fff; font-weight: 700; cursor: pointer; }
 .coords { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.coords input { background: #fff; color: #6b6b6b; }
+.coords input { background: #fff; }
+.consent { flex-direction: row !important; gap: 8px !important; font-weight: 500 !important; }
 
-.consent {
-flex-direction: row !important;
-align-items: flex-start;
-gap: 10px !important;
-font-weight: 500 !important;
-color: #4a4a4a !important;
-line-height: 1.35;
-}
-
-.consent input { width: 18px; height: 18px; margin-top: 2px; accent-color: #0b0b0c; }
-
+/* MARCADO EN EL MAPA */
 :global(.rr-pin-wrap) { background: none !important; border: 0 !important; }
 :global(.rr-pin) {
-width: 40px;
-height: 40px;
-border-radius: 50%;
-background: #0b0b0c;
-color: #fff;
-display: grid;
-place-items: center;
-box-shadow: 0 8px 18px rgba(0,0,0,0.28);
-border: 3px solid #fff;
-font-size: 16px;
+  width: 40px; height: 40px; border-radius: 50%; background: #0b0b0c; color: #fff; display: grid; place-items: center; box-shadow: 0 8px 18px rgba(0,0,0,0.28); border: 3px solid #fff; font-size: 16px;
 }
 :global(.rr-pin.is-on) { background: #06c167; }
+:global(.rr-popup .leaflet-popup-content-wrapper) { border-radius: 14px; padding: 0; box-shadow: 0 12px 32px rgba(0,0,0,0.2); }
+:global(.rr-popup .leaflet-popup-content) { margin: 0; width: 200px !important; }
+:global(.rr-pop) { padding: 12px; }
+:global(.rr-pop-kicker) { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6b6b6b; }
+:global(.rr-pop h3) { margin: 2px 0 4px; font-size: 14px; }
+:global(.rr-pop p) { margin: 0 0 8px; font-size: 12px; color: #555; }
+:global(.rr-wa) { display: block; text-align: center; background: #06c167; color: #fff !important; text-decoration: none; font-weight: 700; font-size: 12px; border-radius: 8px; padding: 8px; }
 
-:global(.rr-popup .leaflet-popup-content-wrapper) {
-border-radius: 16px;
-padding: 0;
-box-shadow: 0 16px 40px rgba(0,0,0,0.2);
-}
-:global(.rr-popup .leaflet-popup-content) { margin: 0; width: 220px !important; }
-:global(.rr-pop) { padding: 14px; }
-:global(.rr-pop-kicker) {
-font-size: 11px;
-font-weight: 700;
-letter-spacing: 0.04em;
-text-transform: uppercase;
-color: #6b6b6b;
-}
-:global(.rr-pop h3) { margin: 4px 0 6px; font-size: 15px; letter-spacing: -0.03em; }
-:global(.rr-pop p) { margin: 0 0 10px; font-size: 13px; color: #555; }
-:global(.rr-wa) {
-display: block;
-text-align: center;
-background: #06c167;
-color: #fff !important;
-text-decoration: none;
-font-weight: 700;
-font-size: 13px;
-border-radius: 10px;
-padding: 10px;
-}
-
-@media (max-width: 860px) {
-.sheet {
-left: 0;
-right: 0;
-top: auto;
-bottom: 0;
-width: 100%;
-height: min(50vh, 420px);
-border-radius: 20px 20px 0 0;
-padding: 12px 14px 12px;
-gap: 10px;
-box-shadow: 0 -12px 40px rgba(0,0,0,0.16);
-}
-.sheet-handle { display: block; }
-.mark { width: 36px; height: 36px; }
-.search-wrap input { height: 46px; }
-.cta { height: 48px; }
-.fab { bottom: calc(min(50vh, 420px) + 16px); right: 14px; }
-:global(.leaflet-control-zoom) { margin-bottom: calc(min(50vh, 420px) + 16px) !important; }
+/* REGLAS RESPONSIVAS PARA MÓVILES (< 768px) */
+@media (max-width: 768px) {
+  .app-layout { flex-direction: column-reverse; }
+  .sidebar {
+    width: 100%;
+    min-width: 100%;
+    height: 55vh;
+    border-radius: 20px 20px 0 0;
+    padding: 14px 14px 12px;
+    gap: 10px;
+    box-shadow: 0 -8px 24px rgba(0,0,0,0.12);
+  }
+  .sheet-handle { display: block; width: 40px; height: 4px; background: #d6d6d6; border-radius: 99px; margin: 0 auto 2px; }
+  .map-stage { height: 45vh; }
+  .fab { bottom: 16px; right: 14px; }
+  .modal { place-items: end center; }
+  .modal-card { width: 100%; border-radius: 20px 20px 0 0; }
 }
 </style>
