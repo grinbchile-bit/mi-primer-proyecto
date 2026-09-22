@@ -1,7 +1,8 @@
-// @ts-check
 import { defineConfig } from 'astro/config';
+import vercel from '@astrojs/vercel';
 
-// https://astro.build/config
+// Configuración para que Vercel ejecute el código en tiempo real
 export default defineConfig({
-	devToolbar: { enabled: false }
+  output: 'server',
+  adapter: vercel()
 });
