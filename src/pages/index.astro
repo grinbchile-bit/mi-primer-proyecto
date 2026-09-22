@@ -1,18 +1,8 @@
 ---
-// Configuración para consulta en tiempo real en servidor (SSR)
 export const prerender = false;
 
 import Layout from '../layouts/Layout.astro';
-import { supabase } from '../lib/supabase';
 
-// Consultar la lista de proveedores registrados en Supabase
-const { data: providersData, error } = await supabase.from('providers').select('*');
-
-if (error) {
-  console.error('Error al cargar servicios de Supabase:', error);
-}
-
-const initialProviders = providersData || [];
 const PUBLIC_SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
 const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 ---
@@ -43,22 +33,7 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       </div>
 
       <div class="services-list" id="servicesList">
-        {initialProviders.map((p) => (
-          <div 
-            class="card" 
-            data-category={p.category || '📍'}
-            data-title={p.title}
-            data-desc={p.description || ''}
-            onclick={`window.focusService(${p.lat}, ${p.lng}, '${p.id}')`}
-          >
-            <span class="icon">{p.category || '📍'}</span>
-            <div class="info">
-              <h3>{p.title}</h3>
-              <p>{p.description}</p>
-              {p.phone && <span class="phone">📞 {p.phone}</span>}
-            </div>
-          </div>
-        ))}
+        <!-- Los datos se cargan dinámicamente desde Supabase -->
       </div>
 
       <button class="btn-publish" id="openModalBtn">+ Registrar mi Habilidad o Servicio</button>
@@ -132,17 +107,21 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   </div>
 </Layout>
 
-<script is:inline define:vars={{ initialProviders, PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY }}>
-  // Variables de Supabase
+<script is:inline define:vars={{ PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY }}>
   const supabaseUrl = PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = PUBLIC_SUPABASE_ANON_KEY;
+
+  let supabaseClient = null;
+  if (window.supabase && supabaseUrl && supabaseAnonKey) {
+    supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+  }
 
   // Inicialización del Mapa
   const defaultLat = -41.4717;
   const defaultLng = -72.9365;
   const map = L.map('map').setView([defaultLat, defaultLng], 12);
 
-  // Capa de mapa limpia sin marcas de agua (Esri WorldTopoMap)
+  // Capa de mapa (Esri WorldTopoMap)
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 19,
     attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), swisstopo, MapmyIndia, &#169; OpenStreetMap contributors, and the GIS User Community'
@@ -174,15 +153,75 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     `;
   }
 
-  // Cargar marcadores iniciales recibidos desde Astro SSR
-  initialProviders.forEach(p => {
-    if (p.lat && p.lng) {
+  // Generar HTML de la tarjeta lateral
+  function renderCardHTML(p) {
+    return `
+      <div 
+        class="card" 
+        data-id="${p.id}"
+        data-category="${p.category || '📍'}"
+        data-title="${p.title}"
+        data-desc="${p.description || ''}"
+        onclick="window.focusService(${p.lat}, ${p.lng}, '${p.id}')"
+      >
+        <span class="icon">${p.category || '📍'}</span>
+        <div class="info">
+          <h3>${p.title}</h3>
+          <p>${p.description || ''}</p>
+          ${p.phone ? `<span class="phone">📞 ${p.phone}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // Agregar servicio a la UI (Mapa y Lista)
+  function addServiceToUI(p) {
+    if (!p.lat || !p.lng) return;
+    
+    const key = `${p.lat}|${p.lng}`;
+    if (!markersByKey.has(key)) {
       const marker = L.marker([p.lat, p.lng], { icon: pinIcon(p.category) })
         .addTo(map)
         .bindPopup(popupHtml(p));
-      markersByKey.set(`${p.lat}|${p.lng}`, { marker, service: p });
+      markersByKey.set(key, { marker, service: p });
     }
-  });
+
+    const list = document.getElementById('servicesList');
+    if (list && !document.querySelector(`.card[data-id="${p.id}"]`)) {
+      list.insertAdjacentHTML('afterbegin', renderCardHTML(p));
+    }
+  }
+
+  // --- Carga en tiempo real directo desde Supabase en el navegador ---
+  async function loadServicesFromSupabase() {
+    if (!supabaseClient) {
+      console.error("Faltan credenciales de Supabase en el cliente.");
+      return;
+    }
+
+    const { data, error } = await supabaseClient
+      .from('providers')
+      .select('*');
+
+    if (error) {
+      console.error('Error Supabase:', error);
+      return;
+    }
+
+    // Limpiar lista y mapa
+    const list = document.getElementById('servicesList');
+    if (list) list.innerHTML = '';
+    
+    markersByKey.forEach(item => map.removeLayer(item.marker));
+    markersByKey.clear();
+
+    if (data) {
+      data.forEach(p => addServiceToUI(p));
+    }
+  }
+
+  // Cargar datos al iniciar
+  loadServicesFromSupabase();
 
   // Función global para centrar el mapa desde las tarjetas de la lista
   window.focusService = function(lat, lng, id) {
@@ -272,11 +311,16 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     });
   }
 
-  // --- Envío del Formulario a Supabase con Actualización en Vivo ---
+  // --- Envío del Formulario a Supabase ---
   const registerForm = document.getElementById('registerForm');
   if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+
+      if (!supabaseClient) {
+        alert('Error: Supabase no está conectado correctamente.');
+        return;
+      }
 
       const consent = document.getElementById('regConsent').checked;
       if (!consent) {
@@ -307,9 +351,6 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       };
 
       try {
-        const createClient = window.supabase ? window.supabase.createClient : supabase.createClient;
-        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-
         const { data, error } = await supabaseClient
           .from('providers')
           .insert([payload])
@@ -320,26 +361,16 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
         alert('¡Tu servicio ha sido publicado exitosamente!');
 
         const newService = (data && data.length > 0) ? data[0] : payload;
-        const icon = newService.category || '📍';
 
-        const newMarker = L.marker([newService.lat, newService.lng], { icon: pinIcon(icon) })
-          .addTo(map)
-          .bindPopup(popupHtml(newService));
-
-        markersByKey.set(`${newService.lat}|${newService.lng}`, { marker: newMarker, service: newService });
-
-        map.flyTo([newService.lat, newService.lng], 15);
-        newMarker.openPopup();
+        addServiceToUI(newService);
+        window.focusService(newService.lat, newService.lng, newService.id);
 
         registerForm.reset();
         closeModal();
 
-        setTimeout(() => {
-          window.location.reload();
-        }, 1200);
-
       } catch (err) {
-        alert('Error al guardar: ' + err.message);
+        alert('Error al publicar: ' + err.message);
+      } finally {
         submitBtn.innerText = 'Confirmar y publicar';
         submitBtn.disabled = false;
       }
@@ -356,8 +387,8 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     const cards = document.querySelectorAll('.services-list .card');
 
     cards.forEach(card => {
-      const title = card.getAttribute('data-title').toLowerCase();
-      const desc = card.getAttribute('data-desc').toLowerCase();
+      const title = (card.getAttribute('data-title') || '').toLowerCase();
+      const desc = (card.getAttribute('data-desc') || '').toLowerCase();
       const cat = card.getAttribute('data-category');
 
       const matchesSearch = title.includes(query) || desc.includes(query);
