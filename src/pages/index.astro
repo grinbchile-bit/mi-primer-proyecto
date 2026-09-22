@@ -134,10 +134,10 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   const defaultLng = -72.9365;
   const map = L.map('map').setView([defaultLat, defaultLng], 12);
 
-  // Capa de Mapa CartoDB Positron / OpenStreetMap
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  // Capa 100% Gratuita y sin marcas de agua de OpenStreetMap
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
 
   const markersByKey = new Map();
@@ -258,7 +258,7 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
         const createClient = window.supabase ? window.supabase.createClient : supabase.createClient;
         const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-        // Guardar e ingresar datos pidiendo la respuesta (.select())
+        // Guardar en Supabase pidiendo el objeto creado
         const { data, error } = await supabaseClient
           .from('providers')
           .insert([payload])
@@ -268,7 +268,7 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 
         alert('¡Tu servicio ha sido publicado exitosamente!');
 
-        // Crear pin en vivo en el mapa
+        // Renderizar pin inmediatamente en el mapa sin esperar la recarga
         const newService = (data && data.length > 0) ? data[0] : payload;
         const icon = newService.category || '📍';
 
@@ -278,15 +278,15 @@ const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 
         markersByKey.set(`${newService.lat}|${newService.lng}`, { marker: newMarker, service: newService });
 
-        // Enfocar mapa en el nuevo punto
+        // Enfocar mapa en el nuevo servicio recién creado
         map.flyTo([newService.lat, newService.lng], 15);
         newMarker.openPopup();
 
-        // Limpiar y cerrar modal
+        // Limpiar formulario y ocultar modal
         registerForm.reset();
         closeModal();
 
-        // Recargar en segundo plano para sincronizar listas completas
+        // Recargar suavemente en segundo plano para sincronizar
         setTimeout(() => {
           window.location.reload();
         }, 1200);
