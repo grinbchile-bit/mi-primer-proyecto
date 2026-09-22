@@ -55,15 +55,14 @@ const serviceCount = providers?.length ?? 0;
     <div class="services-list" id="servicesList">
       {providers && providers.length > 0 ? (
         providers.map((item) => {
-          const icon = item.category || item.category_icon || '📍';
-          const description = item.description || item.desc || 'Sin descripción disponible.';
+          const icon = item.category || '📍';
+          const description = item.description || 'Sin descripción disponible.';
           return (
             <button
               type="button"
               class="card"
               data-category={icon}
               data-title={item.title ? item.title.toLowerCase() : ''}
-              data-sector={item.sector ? item.sector.toLowerCase() : ''}
               data-lat={item.lat ?? ''}
               data-lng={item.lng ?? ''}
             >
@@ -74,7 +73,6 @@ const serviceCount = providers?.length ?? 0;
                   <span class="eta">Ver mapa</span>
                 </div>
                 <p>{description}</p>
-                <span class="meta">📍 {item.sector || 'Sector rural'}</span>
               </div>
             </button>
           );
@@ -133,31 +131,13 @@ const serviceCount = providers?.length ?? 0;
       </label>
 
       <label>
-        Sector
-        <select id="regSector" required>
-          <option value="" disabled selected>Elige tu sector</option>
-          <option value="El Melí">El Melí</option>
-          <option value="San Carlos">San Carlos</option>
-          <option value="Cordillera Vieja">Cordillera Vieja</option>
-          <option value="Hua Huar">Hua Huar</option>
-          <option value="Los Piques">Los Piques</option>
-          <option value="Esperanza">Esperanza</option>
-          <option value="Tambor Bajo">Tambor Bajo</option>
-          <option value="Miramar Bajo">Miramar Bajo</option>
-          <option value="Estaquilla">Estaquilla</option>
-          <option value="Los Muermos Centro">Los Muermos Centro</option>
-          <option value="Otro">Otro sector</option>
-        </select>
-      </label>
-
-      <label>
         Qué ofreces
         <textarea id="regDesc" rows="2" placeholder="Miel de ulmo, fletes, leña seca..."></textarea>
       </label>
 
       <label>
         WhatsApp
-        <input type="tel" id="regPhone" placeholder="+56 9 1234 5678" required />
+        <input type="tel" id="regPhone" placeholder="+56912345678" required />
       </label>
 
       <div class="gps-box">
@@ -215,13 +195,12 @@ const serviceCount = providers?.length ?? 0;
     }
 
     function popupHtml(service) {
-      const icon = service.category || service.category_icon || '📍';
-      const desc = service.description || service.desc || 'Sin descripción';
-      const sector = service.sector || 'Sector rural';
+      const icon = service.category || '📍';
+      const desc = service.description || 'Sin descripción';
       const phone = (service.phone || '').replace(/\D/g, '');
       return `
         <div class="rr-pop">
-          <div class="rr-pop-kicker">${icon} ${sector}</div>
+          <div class="rr-pop-kicker">${icon} Servicio</div>
           <h3>${service.title}</h3>
           <p>${desc}</p>
           ${phone ? `<a class="rr-wa" href="https://wa.me/${phone}" target="_blank" rel="noopener">Contactar por WhatsApp</a>` : ''}
@@ -232,7 +211,7 @@ const serviceCount = providers?.length ?? 0;
     if (providers && Array.isArray(providers)) {
       providers.forEach((service) => {
         if (service.lat && service.lng) {
-          const icon = service.category || service.category_icon || '📍';
+          const icon = service.category || '📍';
           const marker = L.marker([service.lat, service.lng], { icon: pinIcon(icon, false) })
             .addTo(map)
             .bindPopup(popupHtml(service), { className: 'rr-popup' });
@@ -341,9 +320,8 @@ const serviceCount = providers?.length ?? 0;
       let shown = 0;
       cards.forEach((card) => {
         const title = card.getAttribute('data-title') || '';
-        const sector = card.getAttribute('data-sector') || '';
         const category = card.getAttribute('data-category') || '';
-        const matchText = !query || title.includes(query) || sector.includes(query);
+        const matchText = !query || title.includes(query);
         const matchCat = activeCategory === 'todos' || category === activeCategory;
         const visible = matchText && matchCat;
         card.style.display = visible ? 'flex' : 'none';
@@ -386,9 +364,8 @@ const serviceCount = providers?.length ?? 0;
 
         const payload = {
           title: document.getElementById('regTitle').value,
-          category_icon: document.getElementById('regCategory').value,
-          sector: document.getElementById('regSector').value,
-          desc: document.getElementById('regDesc').value,
+          category: document.getElementById('regCategory').value,
+          description: document.getElementById('regDesc').value,
           phone: document.getElementById('regPhone').value,
           lat: latVal,
           lng: lngVal
@@ -595,7 +572,7 @@ const serviceCount = providers?.length ?? 0;
 .card h3 { margin: 0; font-size: 0.9rem; font-weight: 700; }
 .eta { font-size: 0.72rem; font-weight: 700; color: #06c167; white-space: nowrap; }
 .card p {
-  margin: 4px 0 6px;
+  margin: 4px 0 0;
   font-size: 0.78rem;
   color: #5a5a5a;
   display: -webkit-box;
@@ -603,7 +580,6 @@ const serviceCount = providers?.length ?? 0;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.meta { font-size: 0.72rem; font-weight: 600; color: #8a8a8a; }
 
 .empty { padding: 32px 12px; text-align: center; color: #6b6b6b; }
 .empty-mark {
