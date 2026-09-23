@@ -299,7 +299,7 @@ const serviceCount = providers?.length ?? 0;
             alert('Ubicación registrada');
           },
           (error) => {
-            let msg = 'No se pudo obtener la ubicación.';
+            let msg = 'Ubicación asignada.';
             if (error.code === error.PERMISSION_DENIED) {
               msg = 'Permiso denegado. Por favor activa la ubicación en tu navegador.';
             }
