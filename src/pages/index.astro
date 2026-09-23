@@ -281,18 +281,33 @@ const serviceCount = providers?.length ?? 0;
 
     if (btnGps) {
       btnGps.addEventListener('click', () => {
-        if (!('geolocation' in navigator)) return;
+        if (!('geolocation' in navigator)) {
+          alert('Tu navegador no soporta geolocalización.');
+          return;
+        }
+
         btnGps.innerText = 'Buscando…';
+        btnGps.disabled = true;
+
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             setCoordinates(pos.coords.latitude, pos.coords.longitude);
             map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
             btnGps.innerText = 'Ubicación lista';
+            btnGps.disabled = false;
+            
+            alert('Ubicación registrada');
           },
-          () => {
-            alert('No se pudo obtener la ubicación.');
+          (error) => {
+            let msg = 'No se pudo obtener la ubicación.';
+            if (error.code === error.PERMISSION_DENIED) {
+              msg = 'Permiso denegado. Por favor activa la ubicación en tu navegador.';
+            }
+            alert(msg);
             btnGps.innerText = 'Usar mi ubicación';
-          }
+            btnGps.disabled = false;
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
         );
       });
     }
