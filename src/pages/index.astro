@@ -64,6 +64,7 @@ const serviceCount = providers?.length ?? 0;
               <button
                 type="button"
                 class="card"
+                data-id={item.id}
                 data-category={icon}
                 data-title={item.title ? item.title.toLowerCase() : ''}
                 data-lat={item.lat ?? ''}
@@ -176,6 +177,9 @@ const serviceCount = providers?.length ?? 0;
 
     if (typeof L === 'undefined') return;
 
+    // Inicializar cliente de Supabase
+    const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([defaultLat, defaultLng], 11);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -202,11 +206,10 @@ const serviceCount = providers?.length ?? 0;
       }, { passive: true });
 
       handle.addEventListener('touchend', () => {
-        const diff = startY - currentY; // Positivo = Arriba, Negativo = Abajo
-        if (Math.abs(diff) < 30) return; // Umbral mínimo de swipe
+        const diff = startY - currentY;
+        if (Math.abs(diff) < 30) return;
 
         if (diff > 30) {
-          // Deslizar Hacia Arriba
           if (sheet.classList.contains('collapsed')) {
             sheet.classList.remove('collapsed');
             sheet.classList.add('half');
@@ -215,7 +218,6 @@ const serviceCount = providers?.length ?? 0;
             sheet.classList.add('expanded');
           }
         } else if (diff < -30) {
-          // Deslizar Hacia Abajo
           if (sheet.classList.contains('expanded')) {
             sheet.classList.remove('expanded');
             sheet.classList.add('half');
@@ -225,7 +227,6 @@ const serviceCount = providers?.length ?? 0;
           }
         }
         
-        // Recalcular el tamaño del mapa tras el cambio de altura
         setTimeout(() => map.invalidateSize(), 300);
       });
     }
@@ -259,6 +260,58 @@ const serviceCount = providers?.length ?? 0;
       `;
     }
 
+    // --- RENDERIZADO DINÁMICO DE PROVEEDORES ---
+    function addProviderToUI(service) {
+      if (!service) return;
+      
+      // Evitar duplicados si ya está en la vista
+      if (service.id && document.querySelector(`[data-id="${service.id}"]`)) return;
+
+      const icon = service.category || '📍';
+      const desc = service.description || 'Sin descripción disponible.';
+
+      if (service.lat && service.lng) {
+        const marker = L.marker([service.lat, service.lng], { icon: pinIcon(icon, false) })
+          .addTo(map)
+          .bindPopup(popupHtml(service), { className: 'rr-popup' });
+        
+        markersByKey.set(`${service.lat}|${service.lng}`, { marker, service, id: service.id });
+      }
+
+      const servicesList = document.getElementById('servicesList');
+      if (servicesList) {
+        const emptyMsg = servicesList.querySelector('.empty');
+        if (emptyMsg) emptyMsg.remove();
+
+        const cardBtn = document.createElement('button');
+        cardBtn.type = 'button';
+        cardBtn.className = 'card';
+        if (service.id) cardBtn.setAttribute('data-id', service.id);
+        cardBtn.setAttribute('data-category', icon);
+        cardBtn.setAttribute('data-title', (service.title || '').toLowerCase());
+        cardBtn.setAttribute('data-lat', service.lat ?? '');
+        cardBtn.setAttribute('data-lng', service.lng ?? '');
+
+        cardBtn.innerHTML = `
+          <div class="card-icon">${icon}</div>
+          <div class="info">
+            <div class="info-top">
+              <h3>${service.title}</h3>
+              <span class="eta">Ver mapa</span>
+            </div>
+            <p>${desc}</p>
+          </div>
+        `;
+
+        cardBtn.addEventListener('click', () => {
+          flyTo(cardBtn.dataset.lat, cardBtn.dataset.lng, cardBtn);
+        });
+
+        servicesList.prepend(cardBtn);
+      }
+    }
+
+    // Inicializar marcadores con datos precargados desde Astro (SSR)
     if (providers && Array.isArray(providers)) {
       providers.forEach((service) => {
         if (service.lat && service.lng) {
@@ -266,7 +319,7 @@ const serviceCount = providers?.length ?? 0;
           const marker = L.marker([service.lat, service.lng], { icon: pinIcon(icon, false) })
             .addTo(map)
             .bindPopup(popupHtml(service), { className: 'rr-popup' });
-          markersByKey.set(`${service.lat}|${service.lng}`, { marker, service });
+          markersByKey.set(`${service.lat}|${service.lng}`, { marker, service, id: service.id });
         }
       });
     }
@@ -289,8 +342,7 @@ const serviceCount = providers?.length ?? 0;
       }
       selectCard(card);
 
-      // En móvil, si la lista está muy arriba, bajarla un nivel para mostrar el pin seleccionado
-      if (window.innerWidth <= 768 && sheet.classList.contains('expanded')) {
+      if (window.innerWidth <= 768 && sheet && sheet.classList.contains('expanded')) {
         sheet.classList.remove('expanded');
         sheet.classList.add('half');
         setTimeout(() => map.invalidateSize(), 300);
@@ -445,12 +497,14 @@ const serviceCount = providers?.length ?? 0;
         };
 
         try {
-          const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
           const { error } = await supabaseClient.from('providers').insert([payload]);
           if (error) throw error;
 
           alert('Tu servicio ya está en el mapa de RedRural.');
-          window.location.reload();
+          closeModal();
+          registerForm.reset();
+          submitBtn.innerText = 'Confirmar y publicar';
+          submitBtn.disabled = false;
         } catch (err) {
           alert('No se pudo guardar: ' + err.message);
           submitBtn.innerText = 'Confirmar y publicar';
@@ -458,11 +512,46 @@ const serviceCount = providers?.length ?? 0;
         }
       });
     }
+
+    // --- ESCUCHADOR EN TIEMPO REAL (REALTIME) ---
+    supabaseClient
+      .channel('public:providers')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'providers' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            addProviderToUI(payload.new);
+            applyFilters();
+          }
+
+          if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id;
+
+            const cardToRemove = document.querySelector(`[data-id="${deletedId}"]`);
+            if (cardToRemove) cardToRemove.remove();
+
+            markersByKey.forEach((val, key) => {
+              if (val.id === deletedId) {
+                map.removeLayer(val.marker);
+                markersByKey.delete(key);
+              }
+            });
+
+            applyFilters();
+          }
+
+          if (payload.eventType === 'UPDATE') {
+            window.location.reload();
+          }
+        }
+      )
+      .subscribe();
   });
 </script>
 
 <style is:global>
-/* RESET GLOBAL PARA SOBREESCRIBIR ESTILOS POR DEFECTO DEL NAVEGADOR */
+/* RESET GLOBAL */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -779,7 +868,7 @@ html, body {
 .rr-pop p { margin: 0 0 8px; font-size: 12px; color: #555; }
 .rr-wa { display: block; text-align: center; background: #06c167; color: #fff !important; text-decoration: none; font-weight: 700; font-size: 12px; border-radius: 8px; padding: 8px; }
 
-/* AJUSTES MÓVILES (BOTTOM SHEET SLIDING) */
+/* AJUSTES MÓVILES (BOTTOM SHEET) */
 @media (max-width: 768px) {
   .app-layout { 
     flex-direction: column-reverse; 
@@ -808,7 +897,6 @@ html, body {
     transition: height 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   }
 
-  /* Área táctil de agarre para deslizar */
   .sheet-handle-area { 
     display: flex; 
     justify-content: center; 
@@ -826,21 +914,9 @@ html, body {
     border-radius: 99px; 
   }
 
-  /* Estado 1: Minimizado (30% menú / 70% mapa) */
-  .sidebar.collapsed { 
-    height: 30vh; 
-  }
-
-  /* Estado 2: Medio (70% menú / 30% mapa - Por Defecto) */
-  .sidebar.half { 
-    height: 72vh; 
-  }
-
-  /* Estado 3: Expandido (100% menú / 0% mapa) */
-  .sidebar.expanded { 
-    height: 100vh; 
-    border-radius: 0;
-  }
+  .sidebar.collapsed { height: 30vh; }
+  .sidebar.half { height: 72vh; }
+  .sidebar.expanded { height: 100vh; border-radius: 0; }
 
   .fab { bottom: 20px; right: 14px; }
   .modal { place-items: end center; }
