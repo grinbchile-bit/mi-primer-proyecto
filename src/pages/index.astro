@@ -18,9 +18,11 @@ const serviceCount = providers?.length ?? 0;
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <div class="app-layout">
-    <!-- PANEL LATERAL -->
-    <aside class="sidebar">
-      <div class="sheet-handle" aria-hidden="true"></div>
+    <!-- PANEL LATERAL / BOTTOM SHEET EN MÓVIL -->
+    <aside class="sidebar half" id="bottomSheet">
+      <div class="sheet-handle-area" id="sheetHandle">
+        <div class="sheet-handle" aria-hidden="true"></div>
+      </div>
 
       <header class="brand-bar">
         <div class="brand">
@@ -184,6 +186,50 @@ const serviceCount = providers?.length ?? 0;
     L.control.zoom({ position: 'topright' }).addTo(map);
     setTimeout(() => map.invalidateSize(), 250);
 
+    // --- GESTIÓN DE BOTTOM SHEET (MÓVIL) ---
+    const sheet = document.getElementById('bottomSheet');
+    const handle = document.getElementById('sheetHandle');
+    let startY = 0;
+    let currentY = 0;
+
+    if (handle && sheet) {
+      handle.addEventListener('touchstart', (e) => {
+        startY = e.touches[0].clientY;
+      }, { passive: true });
+
+      handle.addEventListener('touchmove', (e) => {
+        currentY = e.touches[0].clientY;
+      }, { passive: true });
+
+      handle.addEventListener('touchend', () => {
+        const diff = startY - currentY; // Positivo = Arriba, Negativo = Abajo
+        if (Math.abs(diff) < 30) return; // Umbral mínimo de swipe
+
+        if (diff > 30) {
+          // Deslizar Hacia Arriba
+          if (sheet.classList.contains('collapsed')) {
+            sheet.classList.remove('collapsed');
+            sheet.classList.add('half');
+          } else if (sheet.classList.contains('half')) {
+            sheet.classList.remove('half');
+            sheet.classList.add('expanded');
+          }
+        } else if (diff < -30) {
+          // Deslizar Hacia Abajo
+          if (sheet.classList.contains('expanded')) {
+            sheet.classList.remove('expanded');
+            sheet.classList.add('half');
+          } else if (sheet.classList.contains('half')) {
+            sheet.classList.remove('half');
+            sheet.classList.add('collapsed');
+          }
+        }
+        
+        // Recalcular el tamaño del mapa tras el cambio de altura
+        setTimeout(() => map.invalidateSize(), 300);
+      });
+    }
+
     let tempMarker = null;
     const markersByKey = new Map();
     let activeCard = null;
@@ -242,6 +288,13 @@ const serviceCount = providers?.length ?? 0;
         found.marker.openPopup();
       }
       selectCard(card);
+
+      // En móvil, si la lista está muy arriba, bajarla un nivel para mostrar el pin seleccionado
+      if (window.innerWidth <= 768 && sheet.classList.contains('expanded')) {
+        sheet.classList.remove('expanded');
+        sheet.classList.add('half');
+        setTimeout(() => map.invalidateSize(), 300);
+      }
     }
 
     document.querySelectorAll('.card').forEach((card) => {
@@ -459,7 +512,7 @@ html, body {
   background: #e5e3df;
 }
 
-.sheet-handle { display: none; }
+.sheet-handle-area { display: none; }
 
 .brand {
   display: flex;
@@ -726,21 +779,70 @@ html, body {
 .rr-pop p { margin: 0 0 8px; font-size: 12px; color: #555; }
 .rr-wa { display: block; text-align: center; background: #06c167; color: #fff !important; text-decoration: none; font-weight: 700; font-size: 12px; border-radius: 8px; padding: 8px; }
 
-/* MÓVILES (< 768px) */
+/* AJUSTES MÓVILES (BOTTOM SHEET SLIDING) */
 @media (max-width: 768px) {
-  .app-layout { flex-direction: column-reverse; }
+  .app-layout { 
+    flex-direction: column-reverse; 
+  }
+  
+  .map-stage { 
+    height: 100vh; 
+    width: 100vw;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+  }
+
   .sidebar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
     width: 100%;
     min-width: 100%;
-    height: 55vh;
+    z-index: 1000;
     border-radius: 20px 20px 0 0;
-    padding: 14px 14px 12px;
+    padding: 8px 14px 12px;
     gap: 10px;
-    box-shadow: 0 -8px 24px rgba(0,0,0,0.12);
+    box-shadow: 0 -8px 24px rgba(0,0,0,0.18);
+    transition: height 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   }
-  .sheet-handle { display: block; width: 40px; height: 4px; background: #d6d6d6; border-radius: 99px; margin: 0 auto 2px; }
-  .map-stage { height: 45vh; }
-  .fab { bottom: 16px; right: 14px; }
+
+  /* Área táctil de agarre para deslizar */
+  .sheet-handle-area { 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    padding: 8px 0; 
+    width: 100%; 
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .sheet-handle { 
+    width: 44px; 
+    height: 5px; 
+    background: #d6d6d6; 
+    border-radius: 99px; 
+  }
+
+  /* Estado 1: Minimizado (30% menú / 70% mapa) */
+  .sidebar.collapsed { 
+    height: 30vh; 
+  }
+
+  /* Estado 2: Medio (70% menú / 30% mapa - Por Defecto) */
+  .sidebar.half { 
+    height: 72vh; 
+  }
+
+  /* Estado 3: Expandido (100% menú / 0% mapa) */
+  .sidebar.expanded { 
+    height: 100vh; 
+    border-radius: 0;
+  }
+
+  .fab { bottom: 20px; right: 14px; }
   .modal { place-items: end center; }
   .modal-card { width: 100%; border-radius: 20px 20px 0 0; }
 }
